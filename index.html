@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zizzy — an 8-bit adventure</title>
+  <meta name="description" content="Zizzy, a little glowing valve, must find five sparks in an abandoned radio station to make the old wireless sing again. A flip-screen 8-bit adventure for the browser.">
+  <link rel="stylesheet" href="style.css?v=dev">
+</head>
+<body>
+  <main class="cabinet">
+    <header class="bar">
+      <h1>ZIZZY</h1>
+      <span class="tag">an 8-bit adventure</span>
+      <span class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    </header>
+
+    <div class="screen">
+      <canvas id="screen" width="256" height="192" aria-label="Zizzy game screen"></canvas>
+    </div>
+
+    <section class="hud" aria-label="Inventory">
+      <button type="button" class="slot active" id="slot0" data-act="slot0">EMPTY</button>
+      <button type="button" class="slot" id="slot1" data-act="slot1">EMPTY</button>
+      <button type="button" class="small" id="mute" data-act="mute">SOUND ON</button>
+    </section>
+
+    <section class="pad" aria-label="Touch controls">
+      <div class="dirs">
+        <button type="button" data-hold="up" aria-label="Jump / climb up">▲</button>
+        <button type="button" data-hold="left" aria-label="Left">◀</button>
+        <button type="button" data-hold="down" aria-label="Climb down">▼</button>
+        <button type="button" data-hold="right" aria-label="Right">▶</button>
+      </div>
+      <div class="acts">
+        <button type="button" class="use" data-act="use">USE</button>
+        <button type="button" data-act="pick">PICK / DROP</button>
+      </div>
+    </section>
+
+    <p class="keys">
+      <b>←/→</b> or <b>A/D</b> walk · <b>↑</b>/<b>W</b> jump (climb on ladders) · <b>↓</b>/<b>S</b> climb down ·
+      <b>SPACE</b>/<b>ENTER</b> use · <b>E</b> pick up / drop · <b>TAB</b> or <b>1</b>/<b>2</b> choose hand ·
+      <b>M</b> sound · <b>R R</b> restart
+    </p>
+  </main>
+
+  <script src="js/font.js?v=dev"></script>
+  <script src="js/art.js?v=dev"></script>
+  <script src="js/audio.js?v=dev"></script>
+  <script src="js/world.js?v=dev"></script>
+  <script src="js/game.js?v=dev"></script>
+</body>
+</html>
