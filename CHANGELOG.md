@@ -6,6 +6,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-07
+
+### Added
+- Russian translation with an EN / RU switch in the panel under the screen
+  (key L). Everything changes at once, including a dialog already on screen,
+  the room names, the items and the painted signs. The first visit follows the
+  browser's language; the choice is remembered; `?lang=ru` / `?lang=en` in the
+  address picks one (for embeds).
+- Cyrillic capitals in the game's 8-px font, in the same chunky style, plus
+  « » quotes.
+
+### Fixed
+- The "DEEP" sign's first letter overlapped the sign's border.
+
 ## [1.0.0] - 2026-10-07
 
 First release.
