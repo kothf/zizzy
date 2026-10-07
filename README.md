@@ -27,7 +27,12 @@ think about what to take where.
 | Pick up / drop | E (G) | PICK / DROP |
 | Choose hand | Tab, 1, 2 | tap a hand |
 | Sound on/off | M | SOUND |
+| Language: English / Russian | L | EN / RU |
 | Restart | R twice | — |
+
+The game is in English and Russian. The first visit follows the browser's
+language and the choice is remembered; `?lang=ru` or `?lang=en` in the address
+picks one, e.g. for an embed.
 
 ## How it's built
 

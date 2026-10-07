@@ -71,7 +71,9 @@ button {
 button:active { background: #2e2e48; }
 button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 
-.hud { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.hud { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; }
+.lang span { color: var(--dim); }
+.lang span.on { color: var(--yellow); font-weight: 700; }
 .slot { text-align: left; color: var(--yellow); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot.empty { color: var(--dim); font-weight: 400; }
 .slot.active { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan) inset; }
@@ -104,6 +106,5 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
   .cabinet { padding: 8px; border-radius: 6px; gap: 8px; }
   .screen { padding: 4px; }
   .hud { grid-template-columns: 1fr 1fr; }
-  .hud .small { grid-column: 1 / -1; }
   .tag { display: none; }
 }

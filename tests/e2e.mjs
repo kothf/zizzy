@@ -203,6 +203,39 @@ check(deaths.died, "walking into the steam costs a life");
 check(deaths.respawned, "respawns on safe ground beside the hazard");
 check(deaths.gameOver && deaths.restarted, "losing all lives ends the game and USE starts a fresh one");
 
+// English / Russian: the EN/RU button switches the page, the HUD and the canvas texts
+{
+  const read = () => page.evaluate(() => ({
+    lang: document.documentElement.lang, title: document.title,
+    slot: document.getElementById("slot0").textContent, mute: document.getElementById("mute").textContent,
+    use: document.querySelector('[data-act="use"]').textContent, keys: document.querySelector(".keys").textContent,
+    dialog: window.zizzy.state.dialog && window.zizzy.state.dialog.text, stored: localStorage.getItem("zizzy-lang")
+  }));
+  await page.evaluate(() => { window.zizzy.manual(true); window.zizzy.state.dialog = null; window.zizzy.state.inv = [null, null]; });
+  // an open dialog switches with the page
+  await page.evaluate(() => { window.zizzy.press("restart"); window.zizzy.press("restart"); window.zizzy.step(2); });
+  const en = await read();
+  await page.click("#lang");
+  await page.evaluate(() => window.zizzy.step(1));
+  const ru = await read();
+  check(en.lang === "en" && /^ZIZZY THE LITTLE VALVE/.test(en.dialog || "") && en.slot === "EMPTY",
+    `starts in English ("${en.slot}", dialog "${(en.dialog || "").slice(0, 24)}…")`);
+  check(ru.lang === "ru" && ru.slot === "ПУСТО" && /^ЗВУК /.test(ru.mute) && ru.use === "ДЕЙСТВИЕ" && /идти/.test(ru.keys) && /Зиззи/.test(ru.title),
+    `EN/RU switches the page to Russian (inventory "${ru.slot}", "${ru.mute}", "${ru.use}")`);
+  check(/^МАЛЕНЬКАЯ РАДИОЛАМПА ЗИЗЗИ/.test(ru.dialog || ""), `the dialog on screen switches too ("${(ru.dialog || "").slice(0, 28)}…")`);
+  check(ru.stored === "ru", "the choice is remembered");
+  await page.reload(); await page.waitForFunction(() => window.zizzy);
+  const again = await read();
+  check(again.lang === "ru" && again.slot === "ПУСТО", "after a reload the game is still in Russian");
+  await page.keyboard.press("KeyL");
+  await page.waitForFunction(() => document.documentElement.lang === "en");
+  const back = await read();
+  check(back.slot === "EMPTY" && back.stored === "en", "the L key switches back to English");
+  await page.goto(url + "?lang=ru"); await page.waitForFunction(() => window.zizzy);
+  check((await read()).lang === "ru", "?lang=ru in the address opens the game in Russian (for embeds)");
+  await page.goto(url); await page.waitForFunction(() => window.zizzy);
+}
+
 // Real-time loop: 50 updates per second regardless of display refresh
 const rate = await page.evaluate(async () => {
   window.zizzy.manual(false);

@@ -11,40 +11,42 @@
   <main class="cabinet">
     <header class="bar">
       <h1>ZIZZY</h1>
-      <span class="tag">an 8-bit adventure</span>
+      <span class="tag" data-i18n="html.tag">an 8-bit adventure</span>
       <span class="stripes" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     </header>
 
     <div class="screen">
-      <canvas id="screen" width="256" height="192" aria-label="Zizzy game screen"></canvas>
+      <canvas id="screen" width="256" height="192" aria-label="Zizzy game screen" data-i18n-aria="html.screen"></canvas>
     </div>
 
-    <section class="hud" aria-label="Inventory">
+    <section class="hud" aria-label="Inventory" data-i18n-aria="html.inventory">
       <button type="button" class="slot active" id="slot0" data-act="slot0">EMPTY</button>
       <button type="button" class="slot" id="slot1" data-act="slot1">EMPTY</button>
       <button type="button" class="small" id="mute" data-act="mute">SOUND ON</button>
+      <button type="button" class="small lang" id="lang" data-act="lang" aria-label="Language: English. Switch to Russian (L)" data-i18n-aria="html.lang"><span data-l="en">EN</span> / <span data-l="ru">RU</span></button>
     </section>
 
-    <section class="pad" aria-label="Touch controls">
+    <section class="pad" aria-label="Touch controls" data-i18n-aria="html.controls">
       <div class="dirs">
-        <button type="button" data-hold="up" aria-label="Jump / climb up">▲</button>
-        <button type="button" data-hold="left" aria-label="Left">◀</button>
-        <button type="button" data-hold="down" aria-label="Climb down">▼</button>
-        <button type="button" data-hold="right" aria-label="Right">▶</button>
+        <button type="button" data-hold="up" aria-label="Jump / climb up" data-i18n-aria="html.up">▲</button>
+        <button type="button" data-hold="left" aria-label="Left" data-i18n-aria="html.left">◀</button>
+        <button type="button" data-hold="down" aria-label="Climb down" data-i18n-aria="html.down">▼</button>
+        <button type="button" data-hold="right" aria-label="Right" data-i18n-aria="html.right">▶</button>
       </div>
       <div class="acts">
-        <button type="button" class="use" data-act="use">USE</button>
-        <button type="button" data-act="pick">PICK / DROP</button>
+        <button type="button" class="use" data-act="use" data-i18n="html.use">USE</button>
+        <button type="button" data-act="pick" data-i18n="html.pick">PICK / DROP</button>
       </div>
     </section>
 
-    <p class="keys">
+    <p class="keys" data-i18n-html="html.keys">
       <b>←/→</b> or <b>A/D</b> walk · <b>↑</b>/<b>W</b> jump (climb on ladders) · <b>↓</b>/<b>S</b> climb down ·
       <b>SPACE</b>/<b>ENTER</b> use · <b>E</b> pick up / drop · <b>TAB</b> or <b>1</b>/<b>2</b> choose hand ·
-      <b>M</b> sound · <b>R R</b> restart
+      <b>M</b> sound · <b>L</b> language · <b>R R</b> restart
     </p>
   </main>
 
+  <script src="js/i18n.js?v=dev"></script>
   <script src="js/font.js?v=dev"></script>
   <script src="js/art.js?v=dev"></script>
   <script src="js/audio.js?v=dev"></script>

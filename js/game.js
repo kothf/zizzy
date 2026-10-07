@@ -3,7 +3,12 @@
    Zizzy — engine: fixed 50 Hz simulation, tile collision, puzzles, rendering.
    ============================================================================= */
 (function () {
-  const { COLS, ROWS, TILE, TOP, rooms: ROOMS, sparks: SPARKS, items: ITEM_SPAWNS, ITEM_NAMES, start: START } = window.ZIZZY_WORLD;
+  const { COLS, ROWS, TILE, TOP, rooms: ROOMS, sparks: SPARKS, items: ITEM_SPAWNS, start: START } = window.ZIZZY_WORLD;
+  const I18N = window.ZIZZY_I18N, T = I18N.T;
+  // a text in the current language, resolved when it is drawn, so switching EN/RU
+  // also changes a dialog or speech bubble that is already on screen
+  const L = (key, vars) => () => T(key, vars);
+  const itemName = id => T('item.' + id);
   const W = 256, H = 192, FIELD_H = ROWS * TILE;
   const TICK_MS = 20;                                   // 50 updates per second, on any display
   const PH = { W: 10, H: 18, WALK: 1.4, AIR: 1.0, ROLL: 1.6, JUMP: 4.2, G: 0.24, MAXFALL: 5, CLIMB: 1.2 };
@@ -103,11 +108,11 @@
   const arcLive = () => { const t = arcPhase(); return t >= ARC.warn && t < ARC.on; };
   const HAZARDS = [
     { room: 0, x0: 18, x1: 38, y0: 56, y1: 176, active: () => !S.flags.steamOff, sfx: 'hurt',
-      msg: "OUCH! ZIZZY'S GLASS CRACKED IN THE SCALDING STEAM!" },
+      msg: L('hazard.steam') },
     { room: 2, x0: 56, x1: 200, y0: 179, y1: 400, active: () => true, sfx: 'fizz',
-      msg: 'FIZZ! ZIZZY SHORT-CIRCUITED IN THE WATER!' },
+      msg: L('hazard.water') },
     { room: 3, x0: ARC.x0, x1: ARC.x1, y0: 32, y1: 176, active: arcLive, sfx: 'zap',
-      msg: "ZAP! THE TESLA COIL BLEW ZIZZY'S FILAMENT!" }
+      msg: L('hazard.arc') }
   ];
   const hurtbox = p => ({ x0: p.x - 4, x1: p.x + 4, y0: p.y - 16, y1: p.y - 1 });
   const overlaps = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
@@ -278,7 +283,7 @@
     S.got[s.id] = true;
     S.sparks++;
     sound.spark();
-    say(`A SPARK! (${S.sparks}/5)`);
+    say(L('spark', { n: S.sparks }));
   }
 
   function die(msg, sfx) {
@@ -286,8 +291,9 @@
     sound[sfx]();
     S.p.dead = true;
     const last = S.lives <= 0;
-    showDialog(msg + (last ? '' : `\n\nLIVES LEFT: ${S.lives}`), () => {
-      if (last) showDialog("GAME OVER\n\nZIZZY'S GLOW HAS GONE OUT. PRESS USE TO TRY AGAIN.", restart);
+    const lives = S.lives;
+    showDialog(() => msg() + (last ? '' : '\n\n' + T('livesLeft', { n: lives })), () => {
+      if (last) showDialog(L('gameOver'), restart);
       else respawn();
     });
   }
@@ -303,8 +309,10 @@
   // ---------------------------------------------------------------------------
   // Dialog, speech, inventory
   // ---------------------------------------------------------------------------
-  function showDialog(text, onClose) { S.dialog = { text, shown: 0, onClose: onClose || null }; }
-  function say(text, ticks = 110) { S.speech = { text, t: ticks }; }
+  // text: a string or a function returning one (resolved in the current language when read)
+  const textOf = src => (typeof src === 'function' ? src() : src);
+  function showDialog(text, onClose) { S.dialog = { src: text, get text() { return textOf(this.src); }, shown: 0, onClose: onClose || null }; }
+  function say(text, ticks = 110) { S.speech = { src: text, get text() { return textOf(this.src); }, t: ticks }; }
 
   function advanceDialog() {
     const d = S.dialog;
@@ -321,21 +329,21 @@
     const near = S.items.find(it => it.room === S.room && Math.abs(it.x - p.x) < 10 && Math.abs(it.y - p.y) < 6);
     if (near && !p.climb) {
       const free = S.inv[S.slot] === null ? S.slot : S.inv.indexOf(null);
-      if (free < 0) { say('HANDS FULL! DROP SOMETHING FIRST.'); return; }
+      if (free < 0) { say(L('handsFull')); return; }
       S.inv[free] = near.id; S.slot = free;
       S.items.splice(S.items.indexOf(near), 1);
       sound.pickup();
-      say('GOT ' + ITEM_NAMES[near.id]);
+      const got = near.id; say(() => T('got', { item: itemName(got) }));
       updateHud();
       return;
     }
     const held = S.inv[S.slot];
-    if (!held) { say('NOTHING HERE TO PICK UP.'); return; }
-    if (!p.ground || p.climb || p.support === 'crate') { say("CAN'T DROP THAT HERE."); return; }
+    if (!held) { say(L('nothingToPick')); return; }
+    if (!p.ground || p.climb || p.support === 'crate') { say(L('cantDrop')); return; }
     S.items.push({ id: held, room: S.room, x: Math.round(p.x), y: p.y });
     S.inv[S.slot] = null;
     sound.drop();
-    say('DROPPED ' + ITEM_NAMES[held]);
+    say(() => T('dropped', { item: itemName(held) }));
     updateHud();
   }
 
@@ -348,53 +356,53 @@
 
     if (S.room === 0) {
       if (at(36, 84, 140, 180)) {
-        if (f.steamOff) return showDialog('THE VALVE IS SHUT TIGHT.');
-        if (!has('wrench')) return showDialog("A BIG STEAM VALVE. THE WHEEL IS STUCK FAST - YOU'LL NEED A TOOL TO TURN IT.");
+        if (f.steamOff) return showDialog(L('valve.shut'));
+        if (!has('wrench')) return showDialog(L('valve.need'));
         f.steamOff = true; takeItem('wrench'); sound.hiss();
-        return showDialog('YOU WEDGE THE WRENCH IN THE WHEEL AND HEAVE... THE STEAM SPLUTTERS AND STOPS!\n\n(THE WRENCH IS STUCK THERE NOW.)');
+        return showDialog(L('valve.done'));
       }
       if (at(168, 200, 20, 90) && p.climb) {
-        if (f.trapOpen) return say('THE TRAPDOOR IS OPEN.');
-        if (!has('oilcan')) return showDialog('A TRAPDOOR! ITS HINGES ARE RUSTED SOLID.');
+        if (f.trapOpen) return say(L('trap.open'));
+        if (!has('oilcan')) return showDialog(L('trap.need'));
         f.trapOpen = true; takeItem('oilcan'); sound.clank();
-        return showDialog('SQUIRT, SQUIRT... THE HINGES LOOSEN AND THE TRAPDOOR SWINGS OPEN!');
+        return showDialog(L('trap.done'));
       }
-      if (at(160, 208, 120, 180) && !f.trapOpen) return showDialog('A LADDER UP TO A TRAPDOOR IN THE CEILING.');
+      if (at(160, 208, 120, 180) && !f.trapOpen) return showDialog(L('trap.ladder'));
     }
-    if (S.room === 1 && at(56, 136, 100, 180)) return showDialog('THE OLD BOILER STILL GLOWS. IT FEEDS THE STEAM PIPE NEXT DOOR.');
+    if (S.room === 1 && at(56, 136, 100, 180)) return showDialog(L('boiler'));
     if (S.room === 2 && cy > 140 && (cx < 64 || cx > 192)) {
-      return showDialog('DEEP, COLD WATER. ONE DROP AND ZIZZY WOULD SHORT-CIRCUIT! THAT CRATE LOOKS LIKE A RAFT...');
+      return showDialog(L('water'));
     }
     if (S.room === 3) {
       if (Math.abs(cx - S.robotX) < 26 && cy > 136) {
-        if (f.robotFixed) return showDialog("'BEEP BOOP. THE ATTIC IS THROUGH THAT DOOR. GOOD LUCK, SMALL VALVE!'");
+        if (f.robotFixed) return showDialog(L('robot.fixed'));
         if (!has('fuse')) {
           sound.beep();
-          return showDialog("'BZZT. I AM SPROCKET. MY FUSE HAS BLOWN AND I CANNOT MOVE. NOBODY PASSES UNTIL I AM FIXED. RULES ARE RULES.'");
+          return showDialog(L('robot.need'));
         }
         f.robotFixed = true;
         S.inv[S.inv.indexOf('fuse')] = 'magnet';
         updateHud(); sound.solve();
-        return showDialog("YOU POP THE FUSE INTO SPROCKET'S BACK...\n\n'SYSTEMS ONLINE! THANK YOU. TAKE THIS MAGNET FROM MY TOOLBOX - IT MAY BE USEFUL.'");
+        return showDialog(L('robot.done'));
       }
-      if (at(72, 112, 24, 180)) return showDialog('A TESLA COIL CRACKLES ON AND OFF. WAIT FOR THE GAP!');
+      if (at(72, 112, 24, 180)) return showDialog(L('tesla'));
     }
     if (S.room === 4) {
       if (at(176, 232, 88, 124)) {
-        if (S.sparks < 5) return showDialog(`AN EMPTY VALVE SOCKET! BUT THE WIRELESS IS STONE COLD. IT NEEDS 5 SPARKS TO WARM UP - YOU HAVE ${S.sparks}.`);
+        if (S.sparks < 5) return showDialog(L('socket.need', { n: S.sparks }));
         return win();
       }
       if (at(24, 64, 140, 180)) {
         const s = SPARKS.find(k => k.grate);
-        if (S.got[s.id]) return say('NOTHING LEFT BEHIND THE GRATE.');
-        if (!has('magnet')) return showDialog('A SPARK IS STUCK BEHIND THE GRATE. THE BARS ARE TOO NARROW FOR ZIZZY.');
+        if (S.got[s.id]) return say(L('grate.empty'));
+        if (!has('magnet')) return showDialog(L('grate.need'));
         collectSpark(s);
-        return showDialog(`YOU DANGLE THE MAGNET THROUGH THE BARS... AND THE SPARK CLINGS TO IT! (${S.sparks}/5)`);
+        return showDialog(L('grate.done', { n: S.sparks }));
       }
-      if (at(160, 240, 130, 180)) return showDialog("THE GRAND OLD WIRELESS. THERE'S AN EMPTY SOCKET ON TOP.");
+      if (at(160, 240, 130, 180)) return showDialog(L('wireless'));
     }
     const held = S.inv[S.slot];
-    say(held ? 'HOLDING ' + ITEM_NAMES[held] : 'NOTHING TO DO HERE.');
+    say(held ? () => T('holding', { item: itemName(held) }) : L('nothingToDo'));
   }
 
   function win() {
@@ -402,7 +410,7 @@
     S.flags.wonTick = S.tick;
     sound.victory();
     const secs = Math.round(S.tick / 50), t = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    showDialog(`ZIZZY HOPS INTO THE SOCKET AND THE FIVE SPARKS LEAP INTO THE GLASS...\n\nTHE GRAND OLD WIRELESS SINGS AGAIN!\n\nTIME ${t}`);
+    showDialog(L('win', { t }));
   }
 
   function restart() {
@@ -412,7 +420,7 @@
   }
 
   function intro() {
-    showDialog('ZIZZY THE LITTLE VALVE HAS ROLLED OUT OF THE GRAND OLD WIRELESS AND INTO THE CELLAR!\n\nFIND 5 SPARKS AND CLIMB BACK UP TO THE ATTIC TO MAKE THE RADIO SING AGAIN.');
+    showDialog(L('intro'));
   }
 
   // ---------------------------------------------------------------------------
@@ -420,9 +428,10 @@
   // ---------------------------------------------------------------------------
   function handleAction(a) {
     if (a === 'mute') { sound.toggleMute(); updateHud(); return; }
+    if (a === 'lang') { I18N.toggle(); return; }
     if (a === 'restart') {
       if (S.restartArmed > 0) { restart(); return; }
-      S.restartArmed = 100; say('PRESS R AGAIN TO RESTART.');
+      S.restartArmed = 100; say(L('restartPrompt'));
       return;
     }
     if (a === 'slot0' || a === 'slot1' || a === 'slot') {
@@ -519,7 +528,7 @@
     2(g) {
       // stalactites under the tunnel roof
       for (let x = 12; x < 248; x += 23) { const h = 3 + (x % 5); for (let i = 0; i < h; i++) px(g, 'c', x + (i >> 1), 64 + i, 2, 1); }
-      px(g, 'Y', 12, 128, 34, 18); px(g, 'K', 14, 130, 30, 14); drawText(g, 'DEEP', 13, 133, PAL.Y);
+      px(g, 'Y', 12, 128, 34, 18); px(g, 'K', 14, 130, 30, 14); drawText(g, T('sign.deep'), 14, 133, PAL.Y);
       px(g, 'w', 28, 146, 2, 30);
     },
     3(g) {
@@ -536,7 +545,7 @@
       px(g, 'w', 86, 32, 12, 3); px(g, 'C', 90, 35, 4, 5);
       px(g, 'w', 86, 168, 12, 8); px(g, 'C', 90, 164, 4, 4);
       // sign by the door
-      px(g, 'R', 212, 118, 38, 13); px(g, 'K', 214, 120, 34, 9); drawText(g, 'STOP', 215, 121, PAL.W);
+      px(g, 'R', 212, 118, 38, 13); px(g, 'K', 214, 120, 34, 9); drawText(g, T('sign.stop'), 215, 121, PAL.W);
       // hatch in the floor
       px(g, 'y', 172, 176, 24, 1);
     },
@@ -641,7 +650,7 @@
   function drawStatus() {
     ctx.fillStyle = PAL.K; ctx.fillRect(0, 0, W, TOP);
     for (let i = 0; i < S.lives; i++) ctx.drawImage(ART.life, 4 + i * 8, 4);
-    drawTextCentered(ctx, ROOMS[S.room].name, 128, 4, PAL.Y);
+    drawTextCentered(ctx, T('room.' + S.room), 128, 4, PAL.Y);
     ctx.drawImage(ART.spark[0], 222, 4);
     drawText(ctx, `${S.sparks}/5`, 230, 4, PAL.W);
     px(ctx, 'b', 0, TOP - 1, W, 1);
@@ -660,7 +669,7 @@
     const h = all.length * 9 + 22, y = Math.round(TOP + (H - TOP - h) / 2);
     px(ctx, 'K', 8, y, 240, h); ctx.strokeStyle = PAL.Y; ctx.lineWidth = 2; ctx.strokeRect(9, y + 1, 238, h - 2);
     lines.forEach((l, i) => drawTextCentered(ctx, l, 128, y + 7 + i * 9, PAL.W));
-    if (d.shown >= d.text.length && S.tick % 40 < 28) drawTextCentered(ctx, 'USE >', 128, y + h - 12, PAL.C);
+    if (d.shown >= d.text.length && S.tick % 40 < 28) drawTextCentered(ctx, T('next'), 128, y + h - 12, PAL.C);
   }
 
   function render() {
@@ -672,7 +681,7 @@
     if (S.dialog) drawDialog();
     else if (S.flags.won) {
       px(ctx, 'K', 28, 22, 200, 13);
-      drawTextCentered(ctx, 'PRESS USE TO PLAY AGAIN', 128, 25, (S.tick >> 4) % 2 ? PAL.W : PAL.Y);
+      drawTextCentered(ctx, T('playAgain'), 128, 25, (S.tick >> 4) % 2 ? PAL.W : PAL.Y);
     }
   }
 
@@ -683,11 +692,12 @@
   function updateHud() {
     for (const i of [0, 1]) {
       const el = $('slot' + i), id = S.inv[i];
-      el.textContent = id ? ITEM_NAMES[id] : 'EMPTY';
+      el.textContent = id ? itemName(id) : T('html.empty');
       el.classList.toggle('active', S.slot === i);
       el.classList.toggle('empty', !id);
     }
-    $('mute').textContent = sound.muted ? 'SOUND OFF' : 'SOUND ON';
+    $('mute').textContent = T(sound.muted ? 'html.soundOff' : 'html.soundOn');
+    for (const sp of $('lang').querySelectorAll('[data-l]')) sp.classList.toggle('on', sp.dataset.l === I18N.lang);
   }
 
   // ---------------------------------------------------------------------------
@@ -699,7 +709,7 @@
     ArrowUp: 'up', KeyW: 'up', KeyQ: 'up',
     ArrowDown: 'down', KeyS: 'down'
   };
-  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', KeyM: 'mute', KeyR: 'restart' };
+  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', KeyM: 'mute', KeyL: 'lang', KeyR: 'restart' };
 
   let acc = 0, lastTime = performance.now(), manual = false;
   const releaseAll = () => { for (const k in input) input[k] = false; };
@@ -745,7 +755,18 @@
     requestAnimationFrame(frame);
   }
 
+  // page texts: data-i18n (text), data-i18n-html (markup), data-i18n-aria (label)
+  function applyPage() {
+    document.documentElement.lang = I18N.lang;
+    document.title = T('html.title');
+    for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = T(el.dataset.i18n);
+    for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = T(el.dataset.i18nHtml);
+    for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', T(el.dataset.i18nAria));
+  }
+  I18N.onChange(() => { for (const k in layers) delete layers[k]; applyPage(); updateHud(); render(); });
+
   S = newState();
+  applyPage();
   updateHud();
   intro();
   render();
