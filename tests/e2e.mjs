@@ -19,8 +19,10 @@ const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css
 const server = createServer(async (req, res) => {
   const path = join(root, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/\/$/, "/index.html"));
   if (path !== root && !path.startsWith(root + sep)) { res.writeHead(403); return res.end(); }
-  try { res.writeHead(200, { "content-type": MIME[extname(path)] || "application/octet-stream" }); res.end(await readFile(path)); }
-  catch { res.writeHead(404); res.end(); }
+  // read first, then answer: a missing file (e.g. the browser's own /favicon.ico) must get one 404, not a 200 header then a crash
+  let body;
+  try { body = await readFile(path); } catch { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "content-type": MIME[extname(path)] || "application/octet-stream" }); res.end(body);
 }).listen(0);
 const url = `http://localhost:${server.address().port}/index.html`;
 
@@ -32,7 +34,8 @@ const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
 const errors = [], missing = [];
 page.on("pageerror", e => errors.push(e.message));
 page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-page.on("response", r => { if (r.status() >= 400) missing.push(`${r.status()} ${r.url()}`); });
+// the browser asks for /favicon.ico by itself (full Chrome does); only the page's own requests count
+page.on("response", r => { if (r.status() >= 400 && !/\/favicon\.ico$/.test(new URL(r.url()).pathname)) missing.push(`${r.status()} ${r.url()}`); });
 await page.goto(url);
 await page.waitForFunction(() => window.zizzy);
 
