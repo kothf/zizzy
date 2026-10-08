@@ -6,6 +6,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-09
+
+### Fixed
+- Level 2: the wooden stick in the storeroom looked like a glitch on the
+  floor (a thin dark-yellow line on the yellow boards). It is now a red-brown
+  twig with a green leaf.
+
 ## [1.4.0] - 2026-10-09
 
 ### Added

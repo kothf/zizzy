@@ -149,9 +149,11 @@ const ITEM_ART = {
   ],
   // level 2: things to try in a circuit's gap, and what the puzzles hand over
   stick: [
-    'yy..........',
-    '.yyyyyyyyyyy',
-    '..........yy'
+    '........GG..',
+    '.......gG...',
+    '.......r....',
+    'rrrrrrrrrrrr',
+    'RRyRRRRyRRRr'
   ],
   duck: [
     '..YYY...',
