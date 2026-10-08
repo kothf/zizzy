@@ -185,9 +185,11 @@ check(play.ok, play.ok ? `complete playthrough without losing a life (${play.liv
 // Deaths, respawn, game over
 const deaths = await page.evaluate(() => {
   const { Z, S, P, run, closeDialogs, walkTo, act } = window.bot;
-  act("use");                       // "press use to play again"
-  closeDialogs();
   const out = {};
+  act("use");                       // after the ending: "USE: on to level 2"
+  out.toLevel2 = S().level === 1 && S().room === 1 && /^LEVEL 2/.test((S().dialog || {}).text || "");
+  Z.level(1);                       // back to level 1 for the hazards
+  closeDialogs();
   walkTo(60, "towards the steam");
   run({ left: true }, () => !!S().dialog, 300, "into the steam");
   out.died = S().lives === 2 && /STEAM/.test(S().dialog.text);
@@ -199,9 +201,159 @@ const deaths = await page.evaluate(() => {
   out.restarted = S().lives === 3 && S().sparks === 0 && !S().flags.steamOff;
   return out;
 });
+check(deaths.toLevel2, "USE after the level 1 ending starts level 2");
 check(deaths.died, "walking into the steam costs a life");
 check(deaths.respawned, "respawns on safe ground beside the hazard");
 check(deaths.gameOver && deaths.restarted, "losing all lives ends the game and USE starts a fresh one");
+
+// Level 2, the power station: a bot plays it through, trying the wrong things first
+const play2 = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs, walkTo, walkToRoom, hop, act, where } = window.bot;
+  const log = [];
+  const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
+  const text = () => (S().dialog || {}).text || "";
+  // a question: show it all, pick answer i, confirm
+  const answer = i => {
+    if (S().dialog.shown < S().dialog.text.length) act("use");
+    act(i ? "slot1" : "slot0"); act("use");
+  };
+  // close texts up to the next question (closeDialogs would stop at it: USE alone never answers)
+  const toQuestion = () => { for (let i = 0; S().dialog && !S().dialog.choices && i < 20; i++) act("use"); };
+  const climbTo = (room, label) => run({ up: true }, () => S().room === room && P().ground && !P().climb, 900, label);
+  const climbDown = (room, y, label) => run({ down: true }, () => S().room === room && P().ground && !P().climb && P().y === y, 900, label);
+  Z.manual(true);
+  try {
+    Z.level(2);
+    expect(S().level === 1 && S().room === 1 && /^LEVEL 2/.test(text()), "N / the level button starts level 2 with its intro");
+    closeDialogs();
+
+    // --- Storeroom: insulators don't close the gap, the metal spoon does
+    walkToRoom("right", 2, "hall -> storeroom");
+    walkTo(120, "to the stick"); act("pick");
+    walkTo(60, "to the motor"); act("use");
+    expect(/INSULATOR/.test(text()) && !S().flags.motorOn, "the wooden stick doesn't close the gap: wood is an insulator");
+    closeDialogs(); walkTo(90, "aside"); act("pick");
+    walkTo(152, "to the duck"); act("pick");
+    walkTo(60, "back to the motor"); act("use");
+    expect(/RUBBER IS AN INSULATOR/.test(text()) && !S().flags.motorOn, "the rubber duck doesn't either");
+    closeDialogs(); walkTo(40, "aside"); act("pick");
+    walkTo(184, "to the spoon"); act("pick");
+    walkTo(60, "to the motor"); act("use");
+    expect(S().flags.motorOn && /CONDUCTOR/.test(text()) && !S().inv.includes("spoon"), "the metal spoon closes it: the motor lowers the rope ladder");
+    closeDialogs();
+    walkTo(216, "to the rope ladder");
+    run({ up: true }, () => P().ground && P().y === 96, 600, "climb the rope ladder");
+    walkTo(184, "to the copper wire"); act("pick");
+    walkTo(152, "to the shelf spark");
+    expect(S().got.store && S().inv.includes("wire"), "takes the copper wire and the shelf spark");
+    walkTo(216, "back to the ladder");
+    climbDown(2, 176, "down the rope ladder");
+    walkToRoom("left", 1, "storeroom -> hall");
+
+    // --- Dark hall: the wire closes the loop, the light and the hatch lock come on
+    walkTo(184, "to the ladder");
+    run({ up: true }, () => P().climb && P().y < 51, 600, "climb to the hatch");
+    expect(S().room === 1 && !S().flags.lit, "the hatch's electric lock holds while there is no power");
+    climbDown(1, 176, "back down");
+    walkTo(224, "to the light circuit"); act("use");
+    expect(S().flags.lit && /CIRCUIT/.test(text()), "the copper wire closes the circuit: the bulb lights");
+    closeDialogs();
+    walkTo(60, "under the shelves");
+    hop(null, "onto the low shelf"); hop(null, "onto the high shelf");
+    walkTo(36, "to the hall spark");
+    expect(S().got.hall, "the light shows the shelf spark");
+    walkTo(120, "off the shelves");
+    walkTo(184, "to the ladder");
+    climbTo(3, "up through the hatch into the classroom");
+
+    // --- Classroom: Volta's battery is flat
+    walkTo(206, "to Volta"); act("use");
+    expect(/BATTERY IS FLAT/.test(text()), "Volta asks for a charged battery");
+    closeDialogs();
+    walkTo(184, "to the hatch");
+    climbDown(1, 176, "down to the hall");
+
+    // --- Generator room: run on the dynamo's belt
+    walkToRoom("left", 0, "hall -> generator room");
+    walkTo(100, "onto the belt");
+    const x0 = P().x;
+    run({ right: true }, () => !!S().dialog, 600, "run on the belt");
+    expect(S().flags.charged && Math.abs(P().x - x0) < 2, "running on the belt charges the dynamo without moving Zizzy");
+    closeDialogs();
+    hop(null, "jump for the dynamo spark");
+    expect(S().got.dynamo, "the dynamo's spark");
+    walkTo(192, "to the battery"); act("pick");
+    expect(S().inv.includes("battery"), "takes the charged battery");
+    walkToRoom("right", 1, "generator -> hall");
+    walkTo(184, "to the ladder");
+    climbTo(3, "back up to the classroom");
+
+    // --- The quiz: a wrong answer explains and asks again
+    walkTo(206, "to Volta"); act("use");
+    expect(S().flags.voltaOn, "the battery wakes Volta");
+    toQuestion();
+    expect(S().dialog && S().dialog.choices, "Volta asks the first question");
+    act("use"); act("use"); act("use");
+    expect(S().dialog && S().dialog.choices, "USE alone doesn't answer: an answer has to be picked first");
+    answer(1);
+    expect(/INSULATOR/.test(text()) && !S().dialog.choices, "a wrong answer gets an explanation");
+    toQuestion();
+    expect(S().dialog && S().dialog.choices && /FLOW THROUGH/.test(text()), "and the same question again");
+    for (const right of [0, 1, 0, 1]) { answer(right); toQuestion(); }
+    expect(S().flags.quizDone && S().got.volta && S().inv.includes("gloves"), "four right answers: a spark and the rubber gloves");
+    walkToRoom("right", 4, "classroom -> roof (Volta stepped aside)");
+
+    // --- Roof: power off, fix the cable with gloves, power on
+    walkTo(40, "to the main switch"); act("use");
+    expect(!S().flags.powerOn, "the main switch turns the power off");
+    closeDialogs();
+    walkTo(190, "across the (now safe) puddle to the cable");
+    act("use");
+    expect(S().flags.cableFixed && S().sparks === 5, "with rubber gloves Zizzy fixes the cable: the fifth spark");
+    closeDialogs();
+    walkTo(40, "back to the switch"); act("use");
+    expect(S().flags.won && S().flags.powerOn, "power on: the town lights up, level 2 won");
+    closeDialogs();
+    return { ok: true, log, lives: S().lives, seconds: Math.round(S().tick / 50) };
+  } catch (e) {
+    return { ok: false, log, error: e.message };
+  }
+});
+for (const l of play2.log) console.log(`  · ${l}`);
+check(play2.ok, play2.ok ? `level 2 played through without losing a life (${play2.lives} lives, ${play2.seconds} s of game time)` : `level 2: ${play2.error}`);
+
+// Level 2 hazard: the puddle under the live cable
+const puddle = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs, walkTo } = window.bot;
+  Z.level(2); closeDialogs();
+  Object.assign(S(), { room: 4 }); Object.assign(P(), { x: 40, y: 176 });
+  run({ right: true }, () => !!S().dialog, 400, "into the puddle");
+  const died = S().lives === 2 && /WATER/.test(S().dialog.text);
+  closeDialogs();
+  return { died, safe: S().room === 4 && P().x < 104 && P().ground };
+});
+check(puddle.died && puddle.safe, "the puddle under the live cable costs a life and Zizzy respawns before it");
+
+// The level button: asks once while playing, remembered, ?level= in the address
+{
+  const lv = await page.evaluate(() => {
+    const { Z, S, closeDialogs } = window.bot;
+    closeDialogs(); Z.step(5);
+    Z.press("level"); Z.step(1);
+    const asked = S().level === 1 && /AGAIN FOR LEVEL 1/.test((S().speech || {}).text || "");
+    Z.press("level"); Z.step(1);
+    return { asked, switched: S().level === 0, stored: localStorage.getItem("zizzy-level") };
+  });
+  check(lv.asked && lv.switched && lv.stored === "1", "the level button asks once while playing, then switches level (and remembers it)");
+  await page.goto(url + "?level=2"); await page.waitForFunction(() => window.zizzy);
+  const q = await page.evaluate(() => ({ level: window.zizzy.state.level, on: document.querySelector('#level [data-v="1"]').classList.contains("on") }));
+  check(q.level === 1 && q.on, "?level=2 in the address opens level 2, and the HUD shows it");
+  await page.click("#lang"); await page.evaluate(() => window.zizzy.step(1));
+  const ru = await page.evaluate(() => ({ d: window.zizzy.state.dialog.text, slot: document.getElementById("slot0").textContent }));
+  check(/^УРОВЕНЬ 2: ЭЛЕКТРОСТАНЦИЯ/.test(ru.d), `level 2 in Russian ("${ru.d.slice(0, 25)}…")`);
+  await page.click("#lang"); await page.evaluate(() => window.zizzy.step(1));
+  await page.goto(url + "?level=1"); await page.waitForFunction(() => window.zizzy);
+}
 
 // English / Russian: the EN/RU button switches the page, the HUD and the canvas texts
 {

@@ -1,6 +1,6 @@
 'use strict';
 /* =============================================================================
-   Zizzy — the world: five rooms of an abandoned radio station.
+   Zizzy — the world of level 1: five rooms of an abandoned radio station.
    Each room is a 32x22 tile grid (8 px tiles) below a 16 px status line. One
    grid drives both drawing and collision, so they can never disagree.
 
@@ -87,5 +87,10 @@
 
   const ITEM_NAMES = { wrench: 'A RUSTY WRENCH', oilcan: 'AN OIL CAN', fuse: 'A GLASS FUSE', magnet: 'A HORSESHOE MAGNET' };
 
-  root.ZIZZY_WORLD = { COLS, ROWS, TILE, TOP, DOOR, rooms, sparks, items, ITEM_NAMES, start: { room: 0, x: 128, y: 176 } };
+  const level1 = { COLS, ROWS, TILE, TOP, DOOR, rooms, sparks, items, ITEM_NAMES, start: { room: 0, x: 128, y: 176 } };
+  root.ZIZZY_WORLD = level1;
+  // every level's world, in order (world2.js adds level 2); room() and the doorway
+  // helpers are shared so all levels obey the same grid rules
+  root.ZIZZY_WORLDS = [level1];
+  root.ZIZZY_ROOM = { room, doorLeft, doorRight };
 })(typeof window !== 'undefined' ? window : globalThis);

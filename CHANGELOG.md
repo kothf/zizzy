@@ -6,6 +6,31 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-08
+
+### Added
+- **Level 2, the Power Station**: five new rooms with first lessons in
+  electricity for players of about 7 to 10, in English and Russian. Insulators
+  and conductors (the stick and the duck fail, the metal spoon closes a
+  motor's circuit), a circuit as a closed loop (a copper wire lights the dark
+  hall), a dynamo that turns running into a charged battery, a quiz by Volta
+  the teacher robot, and electrical safety on the roof (switch off before
+  fixing, rubber gloves, never step in water near a live cable). Wrong tries
+  explain why instead of costing a life.
+- Questions with answers to choose: arrows (or a tap) pick an answer, USE
+  confirms. Nothing is picked at first, so pressing USE to hurry the text
+  never answers by accident.
+- The LEVEL button and the N key switch between the levels (asking once while
+  you play); `?level=2` in the address opens level 2; the last level played is
+  remembered. Finishing level 1 leads on to level 2.
+- Six new items (stick, rubber duck, spoon, copper wire, battery, rubber
+  gloves), Volta, a darkened hall lit only by Zizzy's own glow, a moving
+  dynamo belt.
+
+### Changed
+- The engine is level-agnostic: each level is a world (map) plus a logic file
+  of hooks; level 1 plays exactly as before.
+
 ## [1.1.0] - 2026-10-07
 
 ### Added

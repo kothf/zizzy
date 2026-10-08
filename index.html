@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Zizzy — an 8-bit adventure</title>
-  <meta name="description" content="Zizzy, a little glowing valve, must find five sparks in an abandoned radio station to make the old wireless sing again. A flip-screen 8-bit adventure for the browser.">
+  <meta name="description" content="Zizzy, a little glowing valve, must find five sparks in an abandoned radio station to make the old wireless sing again, then bring the power back in level 2, a set of first electricity lessons for kids. A flip-screen 8-bit adventure for the browser in English and Russian.">
   <link rel="stylesheet" href="style.css?v=dev">
 </head>
 <body>
@@ -22,6 +22,7 @@
     <section class="hud" aria-label="Inventory" data-i18n-aria="html.inventory">
       <button type="button" class="slot active" id="slot0" data-act="slot0">EMPTY</button>
       <button type="button" class="slot" id="slot1" data-act="slot1">EMPTY</button>
+      <button type="button" class="small lang" id="level" data-act="level" aria-label="Level: 1 or 2. Switch level (N)" data-i18n-aria="html.levelAria"><span data-i18n="html.level">LEVEL</span> <span data-v="0">1</span> / <span data-v="1">2</span></button>
       <button type="button" class="small" id="mute" data-act="mute">SOUND ON</button>
       <button type="button" class="small lang" id="lang" data-act="lang" aria-label="Language: English. Switch to Russian (L)" data-i18n-aria="html.lang"><span data-l="en">EN</span> / <span data-l="ru">RU</span></button>
     </section>
@@ -42,7 +43,7 @@
     <p class="keys" data-i18n-html="html.keys">
       <b>←/→</b> or <b>A/D</b> walk · <b>↑</b>/<b>W</b> jump (climb on ladders) · <b>↓</b>/<b>S</b> climb down ·
       <b>SPACE</b>/<b>ENTER</b> use · <b>E</b> pick up / drop · <b>TAB</b> or <b>1</b>/<b>2</b> choose hand ·
-      <b>M</b> sound · <b>L</b> language · <b>R R</b> restart
+      <b>M</b> sound · <b>L</b> language · <b>N</b> level · <b>R R</b> restart
     </p>
   </main>
 
@@ -51,6 +52,9 @@
   <script src="js/art.js?v=dev"></script>
   <script src="js/audio.js?v=dev"></script>
   <script src="js/world.js?v=dev"></script>
+  <script src="js/world2.js?v=dev"></script>
+  <script src="js/level1.js?v=dev"></script>
+  <script src="js/level2.js?v=dev"></script>
   <script src="js/game.js?v=dev"></script>
 </body>
 </html>

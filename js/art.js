@@ -146,6 +146,52 @@ const ITEM_ART = {
     '.RR..RR.',
     '.RRRRRR.',
     '..RRRR..'
+  ],
+  // level 2: things to try in a circuit's gap, and what the puzzles hand over
+  stick: [
+    'yy..........',
+    '.yyyyyyyyyyy',
+    '..........yy'
+  ],
+  duck: [
+    '..YYY...',
+    '.YYKYR..',
+    '.YYYYRR.',
+    '..YY....',
+    'YYYYYYY.',
+    'YYYYYYYY',
+    '.YYYYYY.'
+  ],
+  spoon: [
+    '.www........',
+    'wWWWw.......',
+    'wWWWwwwwwwww',
+    '.www........'
+  ],
+  wire: [
+    '..rRRr..',
+    '.R....R.',
+    'r.rRRr.r',
+    '.R....R.',
+    '..rRRrrr',
+    '.......Y'
+  ],
+  battery: [
+    '..ww..',
+    'GGGGGG',
+    'GWGGGG',
+    'GGGGGG',
+    'gggggg',
+    'gggggg',
+    'gggggg',
+    'gggggg'
+  ],
+  gloves: [
+    '.Y.Y.....Y.Y.',
+    'YYYY....YYYY.',
+    'YYYYY..YYYYY.',
+    'YYYY....YYYY.',
+    'yyy......yyy.'
   ]
 };
 
@@ -196,6 +242,9 @@ function buildArt() {
     zizzy: { 1: right, '-1': left, roll },
     robotBroken: sprite(ROBOT, { E: 'R' }),
     robotFixed: sprite(ROBOT, { E: 'G' }),
+    // Volta the teacher robot (level 2): magenta, dark until her battery is in
+    voltaOff: sprite(ROBOT, { E: 'K', b: 'm', Y: 'w', R: 'K' }),
+    voltaOn: sprite(ROBOT, { E: 'C', b: 'm', R: 'G' }),
     spark: [sprite(SPARK), sprite(SPARK, { Y: 'W' })],
     items: Object.fromEntries(Object.entries(ITEM_ART).map(([k, v]) => [k, sprite(v)])),
     life: sprite(LIFE_ICON)
