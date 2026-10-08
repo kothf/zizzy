@@ -34,8 +34,10 @@ about 7 to 10. The lights have gone out, and every puzzle is one idea:
   first, fix the cable wearing rubber gloves, then switch on and light up the town.
 
 Wrong tries explain instead of punishing; only the live puddle costs a life.
-Finishing level 1 leads on to level 2, and the LEVEL button (key N) or
-`?level=2` in the address starts either one directly.
+The game opens on a start screen where you choose the level (the one played
+last is already picked). Finishing level 1 leads on to level 2, the LEVEL
+button (key N) switches at any time, and `?level=2` in the address skips the
+start screen.
 
 | | Keyboard | Touch |
 |---|---|---|

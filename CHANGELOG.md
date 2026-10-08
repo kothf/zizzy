@@ -6,6 +6,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-08
+
+### Added
+- A start screen to choose the level: "Level 1: the Radio Station - an
+  adventure" or "Level 2: the Power Station - electricity for kids". The level
+  played last is already picked, so USE starts it; arrows or a tap pick the
+  other. A link with `?level=1` or `?level=2` still starts that level directly.
+
 ## [1.2.0] - 2026-10-08
 
 ### Added

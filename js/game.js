@@ -409,6 +409,14 @@
     S.dialog.intro = true;
   }
 
+  // the start screen: choose a level (the one played last is picked already, so USE starts it)
+  function menu(level) {
+    newState(level);
+    updateHud();
+    ask(L('menu.title'), LEVELS.map((_, i) => L('menu.l' + (i + 1))), i => startLevel(i));
+    Object.assign(S.dialog, { sel: level, intro: true, menu: true });
+  }
+
   // ---------------------------------------------------------------------------
   // Fixed-step update
   // ---------------------------------------------------------------------------
@@ -685,11 +693,13 @@
   };
   WORLDS.forEach((world, i) => LEVELS.push({ world, ...LOGIC[i](E) }));
 
-  // the level to start: ?level=2 in the address, else the last one played
-  let first = 0;
-  try { first = Number(localStorage.getItem('zizzy-level')) - 1; } catch (e) { /* storage blocked */ }
-  try { const q = Number(new URLSearchParams(location.search).get('level')); if (q) first = q - 1; } catch (e) { /* no location */ }
-  startLevel(LEVELS[first] ? first : 0);
+  // ?level=2 in the address starts that level (links, embeds); otherwise the start screen
+  // offers both, with the one played last picked
+  let last = 0, asked = 0;
+  try { last = Number(localStorage.getItem('zizzy-level')) - 1; } catch (e) { /* storage blocked */ }
+  try { asked = Number(new URLSearchParams(location.search).get('level')); } catch (e) { /* no location */ }
+  if (LEVELS[asked - 1]) startLevel(asked - 1);
+  else menu(LEVELS[last] ? last : 0);
   applyPage();
   render();
   requestAnimationFrame(frame);
@@ -699,6 +709,7 @@
     get state() { return S; },
     get world() { return WORLD; },
     level: n => startLevel(n - 1),
+    menu: () => menu(S.level),
     manual(on) { manual = on; acc = 0; lastTime = performance.now(); },
     setKeys(k) { releaseAll(); Object.assign(input, k); },
     press(a) { actions.push(a); },
