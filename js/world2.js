@@ -29,7 +29,7 @@
     room({ id: 2, name: 'THE STOREROOM', gx: 2, gy: 1,
       theme: { wall: 'boards', ink: 'y', block: 'r', plank: 'Y', ladder: 'W', pipe: 'c' } }, fill => {
       doorLeft(fill);
-      fill(17, 10, 25, 10, '=');              // high shelf; the rope ladder (cols 26-27) comes down when the motor runs
+      fill(17, 10, 25, 10, '=');              // high shelf (spark); the rope ladder (cols 26-27) comes down when the motor runs
       fill(29, 19, 30, 19, 'X');              // boxes in the corner
     }),
     room({ id: 3, name: "VOLTA'S CLASSROOM", gx: 1, gy: 0,
@@ -60,7 +60,7 @@
     { id: 'stick', room: 2, x: 120, y: 176 },
     { id: 'duck', room: 2, x: 152, y: 176 },
     { id: 'spoon', room: 2, x: 184, y: 176 },
-    { id: 'wire', room: 2, x: 184, y: 96 }
+    { id: 'wire', room: 1, x: 212, y: 176 }       // on the floor right under the light circuit's gap
   ];
 
   const level2 = { COLS, ROWS, TILE, TOP, DOOR, rooms, sparks, items, start: { room: 1, x: 128, y: 176 } };
