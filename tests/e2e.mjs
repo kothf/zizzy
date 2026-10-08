@@ -82,8 +82,9 @@ const play = await page.evaluate(() => {
   const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
   Z.manual(true);
   try {
+    expect(S().dialog && S().dialog.menu && S().dialog.choices.length === 2 && S().dialog.sel === 0, "the game opens on the level choice, level 1 picked");
     closeDialogs();
-    expect(S().room === 0 && P().ground, "starts on the cellar floor");
+    expect(S().level === 0 && S().room === 0 && P().ground, "USE starts level 1 on the cellar floor");
 
     // --- Flooded tunnel: ride the raft, grab the wrench and the floating spark
     walkToRoom("right", 2, "cellar -> tunnel");
@@ -352,6 +353,18 @@ check(puddle.died && puddle.safe, "the puddle under the live cable costs a life 
   const ru = await page.evaluate(() => ({ d: window.zizzy.state.dialog.text, slot: document.getElementById("slot0").textContent }));
   check(/^УРОВЕНЬ 2: ЭЛЕКТРОСТАНЦИЯ/.test(ru.d), `level 2 in Russian ("${ru.d.slice(0, 25)}…")`);
   await page.click("#lang"); await page.evaluate(() => window.zizzy.step(1));
+
+  // the start screen remembers the level played last, and a tap on a level starts it
+  await page.evaluate(() => localStorage.setItem("zizzy-level", "2"));
+  await page.goto(url); await page.waitForFunction(() => window.zizzy);
+  const m = await page.evaluate(() => { const Z = window.zizzy; Z.manual(true); Z.step(80); const d = Z.state.dialog; return { menu: !!(d && d.menu), sel: d && d.sel, text: d && d.text }; });
+  check(m.menu && m.sel === 1 && /CHOOSE A LEVEL/.test(m.text), "without ?level= the start screen offers both levels, the last one played picked");
+  const box = await page.locator("#screen").boundingBox();
+  const row = await page.evaluate(() => window.zizzy.state.dialog.rows[0]);
+  await page.mouse.click(box.x + box.width / 2, box.y + (row[0] + row[1]) / 2 * box.height / 192);
+  await page.evaluate(() => window.zizzy.step(2));
+  const t = await page.evaluate(() => ({ level: window.zizzy.state.level, intro: (window.zizzy.state.dialog || {}).text || "" }));
+  check(t.level === 0 && /^ZIZZY THE LITTLE VALVE/.test(t.intro), "tapping LEVEL 1 on the start screen starts level 1");
   await page.goto(url + "?level=1"); await page.waitForFunction(() => window.zizzy);
 }
 
