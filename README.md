@@ -12,11 +12,30 @@ also on [aerocat.tech/games](https://aerocat.tech/games/)
 
 ## The game
 
-Five rooms: the Dusty Cellar, the Boiler Room, the Flooded Tunnel, the Workshop
-and the Radio Attic. Each one has a puzzle: a scalding steam leak, a rusted
-trapdoor, a raft across deep water, a crackling Tesla coil and a robot called
-Sprocket who won't let anyone pass. Zizzy can carry two things at once, so
-think about what to take where.
+**Level 1, the Radio Station.** Five rooms: the Dusty Cellar, the Boiler Room,
+the Flooded Tunnel, the Workshop and the Radio Attic. Each one has a puzzle: a
+scalding steam leak, a rusted trapdoor, a raft across deep water, a crackling
+Tesla coil and a robot called Sprocket who won't let anyone pass. Zizzy can
+carry two things at once, so think about what to take where.
+
+**Level 2, the Power Station** — first lessons in electricity for players of
+about 7 to 10. The lights have gone out, and every puzzle is one idea:
+
+- *Storeroom:* a motor's wire has a gap. The wooden stick and the rubber duck
+  don't close it (insulators); the metal spoon does (a conductor).
+- *Dark Hall:* a battery, a bulb and a broken wire. A long copper wire closes
+  the loop, the bulb lights, and the same power opens the hatch's electric lock.
+- *Generator Room:* run on the dynamo's belt to turn running into electricity
+  and charge a battery.
+- *Volta's Classroom:* the battery wakes Volta, the teacher robot, who asks four
+  questions (conductors, circuits, switches, wet hands). A wrong answer gets an
+  explanation and the question again.
+- *Roof Substation:* a broken cable sparks over a puddle. Switch the power off
+  first, fix the cable wearing rubber gloves, then switch on and light up the town.
+
+Wrong tries explain instead of punishing; only the live puddle costs a life.
+Finishing level 1 leads on to level 2, and the LEVEL button (key N) or
+`?level=2` in the address starts either one directly.
 
 | | Keyboard | Touch |
 |---|---|---|
@@ -27,6 +46,8 @@ think about what to take where.
 | Pick up / drop | E (G) | PICK / DROP |
 | Choose hand | Tab, 1, 2 | tap a hand |
 | Sound on/off | M | SOUND |
+| Choose an answer (quiz) | ← → or ↑ ↓, then Space | tap it |
+| Level 1 / 2 | N | LEVEL |
 | Language: English / Russian | L | EN / RU |
 | Restart | R twice | — |
 
@@ -71,8 +92,14 @@ npm run package     # dist/zizzy/ and a versioned .tar.gz
 
 The end-to-end test drives the game through the same inputs a player uses
 (keys held tick by tick): it rides the raft, catches the floating spark, opens
-the trapdoor, times the jump past the Tesla coil and wins, then checks deaths,
-respawning, game over and the 50 Hz timing.
+the trapdoor, times the jump past the Tesla coil and wins; then it plays level 2,
+trying the insulators before the spoon, running the dynamo and answering one
+quiz question wrong first; then it checks deaths, respawning, game over, the
+level switch and the 50 Hz timing.
+
+Each level is a world (`js/world.js`, `js/world2.js`: the tile maps, items and
+sparks) plus its logic (`js/level1.js`, `js/level2.js`: puzzles, hazards and
+scenery as hooks); `js/game.js` is the engine they share.
 
 Pages load their scripts with `?v=dev`; packaging stamps the release version
 into every asset URL so browsers and CDNs never mix two versions.

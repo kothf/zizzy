@@ -71,7 +71,7 @@ button {
 button:active { background: #2e2e48; }
 button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 
-.hud { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; }
+.hud { display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 8px; }
 .lang span { color: var(--dim); }
 .lang span.on { color: var(--yellow); font-weight: 700; }
 .slot { text-align: left; color: var(--yellow); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

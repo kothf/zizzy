@@ -1,7 +1,7 @@
 {
   "name": "zizzy",
-  "version": "1.1.0",
-  "description": "Zizzy, a little glowing valve, must find five sparks in an abandoned radio station. A flip-screen 8-bit adventure for the browser.",
+  "version": "1.2.0",
+  "description": "Zizzy, a little glowing valve, must find five sparks in an abandoned radio station, then bring the power back to the station in a level of first electricity lessons for kids. A flip-screen 8-bit adventure for the browser.",
   "private": true,
   "license": "MIT",
   "author": "Andrey Dumchin (https://aerocat.tech)",

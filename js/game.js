@@ -1,9 +1,23 @@
 'use strict';
 /* =============================================================================
-   Zizzy — engine: fixed 50 Hz simulation, tile collision, puzzles, rendering.
+   Zizzy — engine: fixed 50 Hz simulation, tile collision, dialogs, rendering.
+   Each level brings its world (world.js, world2.js) and its puzzle logic
+   (level1.js, level2.js); the engine calls the level's hooks:
+     init(S)                 its flags and moving parts in a fresh state
+     blocked(room,row,col)   a tile that puzzle state puts over the map, or null
+     support(x,yb,climbing)  'crate' when a moving platform carries Zizzy there
+     conveyor()              x speed a moving floor adds while Zizzy stands on it
+     hazards                 [{ room, x0..y1, active(), sfx, msg }]
+     tick()                  per-step world animation (runs during dialogs too)
+     use(at, cx, cy)         USE next to something; true when it handled it
+     decor[room](g)          static scenery, drawn once into the room layer
+     draw(), overlay()       moving scenery under / over Zizzy
+     drawPlayer()            true when the level draws Zizzy itself (an ending)
+     intro, wonBanner        text keys; onWonUse() after the ending
    ============================================================================= */
 (function () {
-  const { COLS, ROWS, TILE, TOP, rooms: ROOMS, sparks: SPARKS, items: ITEM_SPAWNS, start: START } = window.ZIZZY_WORLD;
+  const { COLS, ROWS, TILE, TOP } = window.ZIZZY_WORLD;
+  const WORLDS = window.ZIZZY_WORLDS, LOGIC = window.ZIZZY_LEVELS;
   const I18N = window.ZIZZY_I18N, T = I18N.T;
   // a text in the current language, resolved when it is drawn, so switching EN/RU
   // also changes a dialog or speech bubble that is already on screen
@@ -12,9 +26,6 @@
   const W = 256, H = 192, FIELD_H = ROWS * TILE;
   const TICK_MS = 20;                                   // 50 updates per second, on any display
   const PH = { W: 10, H: 18, WALK: 1.4, AIR: 1.0, ROLL: 1.6, JUMP: 4.2, G: 0.24, MAXFALL: 5, CLIMB: 1.2 };
-  const CRATE = { y: 168, w: 24, x0: 56, span: 120 };   // the raft in the flooded tunnel
-  const ARC = { period: 160, warn: 24, on: 84, x0: 88, x1: 96 };
-  const ROBOT_HOME = 224, ROBOT_AWAY = 150;
 
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d');
@@ -26,18 +37,25 @@
   // State
   // ---------------------------------------------------------------------------
   let S;
-  function newState() {
-    return {
-      tick: 0, room: START.room, lives: 3, sparks: 0, got: {},
+  // the level being played: its world data and its logic (hooks)
+  let LV, WORLD, ROOMS, SPARKS;
+  const LEVELS = [];
+  function newState(level) {
+    LV = LEVELS[level]; WORLD = LV.world; ROOMS = WORLD.rooms; SPARKS = WORLD.sparks;
+    const START = WORLD.start;
+    S = {
+      level, tick: 0, room: START.room, lives: 3, sparks: 0, got: {},
       inv: [null, null], slot: 0,
-      items: ITEM_SPAWNS.map(i => ({ ...i })),
-      flags: { steamOff: false, trapOpen: false, robotFixed: false, won: false, wonTick: 0 },
-      robotX: ROBOT_HOME, crateX: CRATE.x0, crateV: 0, cratePhase: 0,
-      dialog: null, speech: null, restartArmed: 0,
+      items: WORLD.items.map(i => ({ ...i })),
+      flags: { won: false, wonTick: 0 },
+      crateX: 0, crateV: 0,
+      dialog: null, speech: null, restartArmed: 0, levelArmed: 0,
       p: { x: START.x, y: START.y, vx: 0, vy: 0, face: 1, ground: true, support: 'solid', roll: false, rollA: 0,
         carry: 0, climb: false, ladX: 0, walkT: 0, climbT: 0, dead: false },
       safe: { room: START.room, x: START.x, y: START.y }
     };
+    LV.init(S);
+    return S;
   }
 
   const input = { left: false, right: false, up: false, down: false };
@@ -59,10 +77,9 @@
       r = roomAt(r.gx + dx, r.gy + dy);
       if (!r) return '#';
     }
-    // puzzle state that blocks the way
-    if (r.id === 0 && !S.flags.trapOpen && row === 1 && (col === 22 || col === 23)) return '#';
-    if (r.id === 3 && !S.flags.robotFixed && row >= 16 && row <= 19 && (col === 27 || col === 28)) return '#';
-    return r.grid[row][col];
+    // puzzle state that changes the map (a shut trapdoor, a robot in the way, a lowered ladder)
+    const b = LV.blocked(r.id, row, col);
+    return b || r.grid[row][col];
   }
   const colOf = x => Math.floor(x / TILE);
   const rowOf = y => Math.floor((y - TOP) / TILE);
@@ -87,8 +104,7 @@
       if (ch === '=') return 'plank';
       if (ch === 'H' && tileAt(S.room, c, row - 1) !== 'H') return 'ladder';
     }
-    if (!climbing && S.room === 2 && yb === CRATE.y && x + 4 > S.crateX && x - 4 < S.crateX + CRATE.w) return 'crate';
-    return null;
+    return climbing ? null : LV.support(x, yb);
   }
 
   /** Centre x of the ladder at pixel (x,y), or null. Ladders are two tiles wide. */
@@ -102,18 +118,8 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Hazards (zone = always-unsafe area, active() = currently deadly)
+  // Hazards (the level's list: zone = always-unsafe area, active() = currently deadly)
   // ---------------------------------------------------------------------------
-  const arcPhase = () => S.tick % ARC.period;
-  const arcLive = () => { const t = arcPhase(); return t >= ARC.warn && t < ARC.on; };
-  const HAZARDS = [
-    { room: 0, x0: 18, x1: 38, y0: 56, y1: 176, active: () => !S.flags.steamOff, sfx: 'hurt',
-      msg: L('hazard.steam') },
-    { room: 2, x0: 56, x1: 200, y0: 179, y1: 400, active: () => true, sfx: 'fizz',
-      msg: L('hazard.water') },
-    { room: 3, x0: ARC.x0, x1: ARC.x1, y0: 32, y1: 176, active: arcLive, sfx: 'zap',
-      msg: L('hazard.arc') }
-  ];
   const hurtbox = p => ({ x0: p.x - 4, x1: p.x + 4, y0: p.y - 16, y1: p.y - 1 });
   const overlaps = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
@@ -203,7 +209,7 @@
     }
 
     const riding = p.ground && p.support === 'crate';
-    moveX(p.vx + (p.ground ? 0 : p.carry) + (riding ? S.crateV : 0));
+    moveX(p.vx + (p.ground ? 0 : p.carry) + (riding ? S.crateV : 0) + (p.ground && LV.conveyor ? LV.conveyor() : 0));
     if (!p.ground) moveY(p.vy, false);
     else {
       const sup = supportAt(p.x, p.y, false);
@@ -259,7 +265,7 @@
   function checkHazards() {
     const p = S.p, hb = hurtbox(p);
     let unsafe = false;
-    for (const h of HAZARDS) {
+    for (const h of LV.hazards) {
       if (h.room !== S.room) continue;
       if (overlaps(hb, h)) {
         unsafe = true;
@@ -274,11 +280,13 @@
   function checkSparks() {
     const p = S.p;
     for (const s of SPARKS) {
-      if (s.room !== S.room || S.got[s.id] || s.grate) continue;
+      if (s.room !== S.room || !sparkShown(s)) continue;
       if (Math.abs(s.x - p.x) < 8 && s.y + 4 > p.y - PH.H && s.y - 4 < p.y + 2) collectSpark(s);
     }
   }
 
+  // a spark lying in the room right now (not one a puzzle hands over, or one still hidden)
+  const sparkShown = s => !S.got[s.id] && !s.grate && !s.given && (!s.when || S.flags[s.when]);
   function collectSpark(s) {
     S.got[s.id] = true;
     S.sparks++;
@@ -312,17 +320,38 @@
   // text: a string or a function returning one (resolved in the current language when read)
   const textOf = src => (typeof src === 'function' ? src() : src);
   function showDialog(text, onClose) { S.dialog = { src: text, get text() { return textOf(this.src); }, shown: 0, onClose: onClose || null }; }
+  /** A question with answers to pick (↑/↓ or ←/→, then USE; or tap one): onChoose(index).
+      Nothing is picked at first, so USE pressed to hurry the text never answers by accident. */
+  function ask(text, choices, onChoose) {
+    showDialog(text, null);
+    Object.assign(S.dialog, { choices, sel: -1, onChoose });
+  }
   function say(text, ticks = 110) { S.speech = { src: text, get text() { return textOf(this.src); }, t: ticks }; }
 
   function advanceDialog() {
     const d = S.dialog;
     if (d.shown < d.text.length) { d.shown = d.text.length; return; }
+    if (d.choices && d.sel < 0) return;                 // pick an answer first
     S.dialog = null;
+    if (d.choices) { sound.pickup(); d.onChoose(d.sel); return; }
     if (d.onClose) d.onClose();
+  }
+  function chooseAnswer(i) {
+    const d = S.dialog;
+    if (!d || !d.choices || d.shown < d.text.length) return;
+    if (d.sel !== i) { d.sel = i; sound.blip(); }
   }
 
   const has = id => S.inv.includes(id);
   function takeItem(id) { const i = S.inv.indexOf(id); if (i >= 0) S.inv[i] = null; updateHud(); }
+  /** Hand Zizzy an item in place of one (or into a free hand); false when both hands are full. */
+  function giveItem(id, insteadOf) {
+    let i = insteadOf ? S.inv.indexOf(insteadOf) : -1;
+    if (i < 0) i = S.inv.indexOf(null);
+    if (i < 0) return false;
+    S.inv[i] = id; S.slot = i; updateHud();
+    return true;
+  }
 
   function pickOrDrop() {
     const p = S.p;
@@ -351,76 +380,33 @@
   // Puzzles: USE checks what Zizzy is standing next to
   // ---------------------------------------------------------------------------
   function use() {
-    const p = S.p, cx = p.x, cy = p.y - 9, f = S.flags;
+    const p = S.p, cx = p.x, cy = p.y - 9;
     const at = (x0, x1, y0, y1) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
-
-    if (S.room === 0) {
-      if (at(36, 84, 140, 180)) {
-        if (f.steamOff) return showDialog(L('valve.shut'));
-        if (!has('wrench')) return showDialog(L('valve.need'));
-        f.steamOff = true; takeItem('wrench'); sound.hiss();
-        return showDialog(L('valve.done'));
-      }
-      if (at(168, 200, 20, 90) && p.climb) {
-        if (f.trapOpen) return say(L('trap.open'));
-        if (!has('oilcan')) return showDialog(L('trap.need'));
-        f.trapOpen = true; takeItem('oilcan'); sound.clank();
-        return showDialog(L('trap.done'));
-      }
-      if (at(160, 208, 120, 180) && !f.trapOpen) return showDialog(L('trap.ladder'));
-    }
-    if (S.room === 1 && at(56, 136, 100, 180)) return showDialog(L('boiler'));
-    if (S.room === 2 && cy > 140 && (cx < 64 || cx > 192)) {
-      return showDialog(L('water'));
-    }
-    if (S.room === 3) {
-      if (Math.abs(cx - S.robotX) < 26 && cy > 136) {
-        if (f.robotFixed) return showDialog(L('robot.fixed'));
-        if (!has('fuse')) {
-          sound.beep();
-          return showDialog(L('robot.need'));
-        }
-        f.robotFixed = true;
-        S.inv[S.inv.indexOf('fuse')] = 'magnet';
-        updateHud(); sound.solve();
-        return showDialog(L('robot.done'));
-      }
-      if (at(72, 112, 24, 180)) return showDialog(L('tesla'));
-    }
-    if (S.room === 4) {
-      if (at(176, 232, 88, 124)) {
-        if (S.sparks < 5) return showDialog(L('socket.need', { n: S.sparks }));
-        return win();
-      }
-      if (at(24, 64, 140, 180)) {
-        const s = SPARKS.find(k => k.grate);
-        if (S.got[s.id]) return say(L('grate.empty'));
-        if (!has('magnet')) return showDialog(L('grate.need'));
-        collectSpark(s);
-        return showDialog(L('grate.done', { n: S.sparks }));
-      }
-      if (at(160, 240, 130, 180)) return showDialog(L('wireless'));
-    }
+    if (LV.use(at, cx, cy)) return;
     const held = S.inv[S.slot];
     say(held ? () => T('holding', { item: itemName(held) }) : L('nothingToDo'));
   }
 
-  function win() {
+  function win(key) {
     S.flags.won = true;
     S.flags.wonTick = S.tick;
     sound.victory();
     const secs = Math.round(S.tick / 50), t = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    showDialog(L('win', { t }));
+    showDialog(L(key, { t }));
   }
 
-  function restart() {
-    S = newState();
+  // start a level afresh (restart, game over, the next level, the level button)
+  function startLevel(level) {
+    newState(level);
+    try { localStorage.setItem('zizzy-level', String(level + 1)); } catch (e) { /* storage blocked */ }
     updateHud();
     intro();
   }
+  const restart = () => startLevel(S.level);
 
   function intro() {
-    showDialog(L('intro'));
+    showDialog(L(LV.intro));
+    S.dialog.intro = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -434,13 +420,21 @@
       S.restartArmed = 100; say(L('restartPrompt'));
       return;
     }
+    if (a === 'level') {
+      // the other level; asks once unless nothing has happened yet (the intro, or the ending)
+      const other = (S.level + 1) % LEVELS.length;
+      if (S.levelArmed > 0 || S.flags.won || S.tick < 2 || (S.dialog && S.dialog.intro)) { startLevel(other); return; }
+      S.levelArmed = 100; S.dialog = null; say(L('levelPrompt', { n: other + 1 }));
+      return;
+    }
+    if (S.dialog && S.dialog.choices && (a === 'slot0' || a === 'slot1')) { chooseAnswer(Number(a.slice(-1))); return; }
     if (a === 'slot0' || a === 'slot1' || a === 'slot') {
       S.slot = a === 'slot' ? 1 - S.slot : Number(a.slice(-1));
       updateHud();
       return;
     }
     if (S.dialog) { if (a === 'use' || a === 'pick') advanceDialog(); return; }
-    if (S.flags.won) { if (a === 'use') restart(); return; }
+    if (S.flags.won) { if (a === 'use') LV.onWonUse(); return; }
     if (a === 'use') use();
     if (a === 'pick') pickOrDrop();
   }
@@ -449,17 +443,16 @@
     while (actions.length) handleAction(actions.shift());
     S.tick++;
     if (S.restartArmed > 0) S.restartArmed--;
+    if (S.levelArmed > 0) S.levelArmed--;
 
     // the world keeps moving even while a dialog is open
-    const before = S.crateX;
-    S.cratePhase += 0.012;
-    S.crateX = CRATE.x0 + (CRATE.span / 2) * (1 - Math.cos(S.cratePhase));
-    S.crateV = S.crateX - before;
-    if (S.flags.robotFixed && S.robotX > ROBOT_AWAY) S.robotX = Math.max(ROBOT_AWAY, S.robotX - 0.5);
+    LV.tick();
 
     if (S.dialog) {
       const d = S.dialog;
       if (d.shown < d.text.length) { d.shown = Math.min(d.text.length, d.shown + 2); if (S.tick % 3 === 0) sound.blip(); }
+      // answers: up/left = the first, down/right = the second
+      else if (d.choices) { if (input.up || input.left) chooseAnswer(0); else if (input.down || input.right) chooseAnswer(1); }
       return;
     }
     if (S.speech && --S.speech.t <= 0) S.speech = null;
@@ -480,7 +473,8 @@
 
   const layers = {};
   function roomLayer(rid) {
-    if (layers[rid]) return layers[rid];
+    const key = S.level + ':' + rid;
+    if (layers[key]) return layers[key];
     const r = ROOMS[rid], th = r.theme;
     const c = newCanvas(W, H), g = c.getContext('2d');
     g.fillStyle = PAL.K; g.fillRect(0, 0, W, H);
@@ -495,8 +489,8 @@
         else if (ch === 'i') g.drawImage(tileImg('pipeV', th.pipe), x, y);
       }
     }
-    DECOR[rid](g);
-    layers[rid] = c;
+    LV.decor[rid](g);
+    layers[key] = c;
     return c;
   }
 
@@ -506,133 +500,19 @@
     for (let i = 0; i < 5; i++) px(g, 'w', x + dir * (4 - i), y + i);
   }
 
-  // Static scenery, drawn once per room into its cached layer
-  const DECOR = {
-    0(g) {
-      cobweb(g, 8, 32, 1); cobweb(g, 247, 32, -1);
-      // bulb on a flex
-      px(g, 'w', 120, 32, 1, 10); px(g, 'w', 118, 42, 5, 2); px(g, 'y', 118, 44, 5, 4); px(g, 'Y', 119, 45, 2, 2);
-      // jars on the high shelf
-      for (const [x, ink] of [[100, 'G'], [108, 'M'], [138, 'C']]) { px(g, ink, x, 105, 5, 7); px(g, 'W', x + 1, 103, 3, 2); }
-      // hatch frame around the trapdoor
-      px(g, 'y', 172, 32, 24, 1);
-    },
-    1(g) {
-      // the boiler, drawn over its block tiles
-      px(g, 'K', 64, 120, 64, 56); px(g, 'r', 66, 122, 60, 54); px(g, 'R', 70, 122, 6, 54);
-      for (let y = 126; y < 176; y += 10) { px(g, 'Y', 68, y); px(g, 'Y', 123, y); }
-      px(g, 'W', 90, 128, 14, 12); px(g, 'K', 92, 130, 10, 8); px(g, 'R', 96, 132, 1, 4); px(g, 'R', 97, 132, 3, 1);
-      px(g, 'K', 76, 160, 40, 16); px(g, 'y', 76, 160, 40, 2);
-      cobweb(g, 247, 32, -1);
-    },
-    2(g) {
-      // stalactites under the tunnel roof
-      for (let x = 12; x < 248; x += 23) { const h = 3 + (x % 5); for (let i = 0; i < h; i++) px(g, 'c', x + (i >> 1), 64 + i, 2, 1); }
-      px(g, 'Y', 12, 128, 34, 18); px(g, 'K', 14, 130, 30, 14); drawText(g, T('sign.deep'), 14, 133, PAL.Y);
-      px(g, 'w', 28, 146, 2, 30);
-    },
-    3(g) {
-      // pegboard with tools
-      px(g, 'r', 120, 64, 48, 24);
-      for (let y = 68; y < 88; y += 6) for (let x = 124; x < 168; x += 6) px(g, 'K', x, y);
-      px(g, 'W', 126, 70, 2, 12); px(g, 'W', 123, 70, 8, 3);     // hammer
-      px(g, 'C', 138, 72, 14, 2); px(g, 'C', 138, 72, 2, 8);     // square
-      px(g, 'Y', 158, 70, 2, 14);                               // screwdriver
-      // workbench top and vice
-      px(g, 'y', 16, 160, 32, 2);
-      px(g, 'w', 24, 154, 12, 6); px(g, 'W', 30, 150, 2, 4);
-      // tesla coil emitters
-      px(g, 'w', 86, 32, 12, 3); px(g, 'C', 90, 35, 4, 5);
-      px(g, 'w', 86, 168, 12, 8); px(g, 'C', 90, 164, 4, 4);
-      // sign by the door
-      px(g, 'R', 212, 118, 38, 13); px(g, 'K', 214, 120, 34, 9); drawText(g, T('sign.stop'), 215, 121, PAL.W);
-      // hatch in the floor
-      px(g, 'y', 172, 176, 24, 1);
-    },
-    4(g) {
-      // window with moon and stars
-      px(g, 'm', 72, 40, 32, 24); px(g, 'b', 74, 42, 28, 20);
-      px(g, 'W', 90, 46, 6, 6); px(g, 'b', 92, 46, 4, 4);
-      for (const [x, y] of [[78, 46], [84, 56], [98, 58], [80, 52]]) px(g, 'W', x, y);
-      px(g, 'm', 87, 42, 2, 20); px(g, 'm', 74, 51, 28, 2);
-      cobweb(g, 56, 32, 1);
-      // the grand wireless (over its block tiles)
-      px(g, 'K', 176, 120, 56, 56); px(g, 'y', 178, 122, 52, 52); px(g, 'r', 182, 126, 44, 26);
-      for (let y = 128; y < 150; y += 3) px(g, 'y', 184, y, 40, 1);
-      px(g, 'K', 186, 156, 36, 10); px(g, 'C', 188, 158, 32, 6); px(g, 'R', 204, 157, 1, 8);
-      px(g, 'W', 184, 168, 6, 4); px(g, 'W', 218, 168, 6, 4);
-      // empty valve socket on top
-      px(g, 'w', 198, 116, 12, 4); px(g, 'K', 200, 117, 8, 2);
-    }
-  };
-
   function drawWorld() {
-    const t = S.tick, f = S.flags;
-    if (S.room === 0) {
-      // valve wheel (with the wrench left in it once used)
-      px(ctx, 'R', 50, 154, 12, 2); px(ctx, 'R', 50, 164, 12, 2); px(ctx, 'R', 48, 156, 2, 8); px(ctx, 'R', 62, 156, 2, 8);
-      px(ctx, 'R', 55, 156, 2, 8); px(ctx, 'R', 50, 159, 12, 2); px(ctx, 'w', 55, 145, 2, 9);
-      if (f.steamOff) ctx.drawImage(ART.items.wrench, 52, 150);
-      else {
-        // a plume that widens as it falls from the nozzle
-        for (let i = 0; i < 34; i++) {
-          const y = 56 + ((i * 29 + t * 3) % 120), spread = 2 + ((y - 56) >> 4);
-          const x = 27 - spread + ((i * 7 + (t >> 1)) % (spread * 2 + 1));
-          px(ctx, i % 4 ? 'W' : 'C', x, y, i % 3 ? 2 : 3, i % 3 ? 2 : 3);
-        }
-      }
-      if (f.trapOpen) { px(ctx, 'y', 196, 24, 3, 22); px(ctx, 'Y', 197, 26, 1, 18); }
-      else { px(ctx, 'y', 176, 24, 16, 8); for (let x = 176; x < 192; x += 4) px(ctx, 'K', x, 24, 1, 8); px(ctx, 'W', 177, 27, 2, 2); }
-    } else if (S.room === 1) {
-      const glow = (t >> 2) % 3;
-      px(ctx, glow ? 'R' : 'Y', 80, 166, 32, 8);
-      for (let i = 0; i < 6; i++) px(ctx, (i + glow) % 2 ? 'Y' : 'R', 82 + i * 5, 164 - ((t + i * 3) % 4), 2, 2);
-    } else if (S.room === 2) {
-      const water = tileImg((t >> 3) % 2 ? 'water0' : 'water1', 'B');
-      for (let c = 7; c <= 24; c++) ctx.drawImage(water, c * TILE, TOP + 20 * TILE);
-      const x = Math.round(S.crateX);
-      px(ctx, 'y', x, CRATE.y, CRATE.w, 8); px(ctx, 'Y', x, CRATE.y, CRATE.w, 1);
-      for (let i = 4; i < CRATE.w; i += 8) px(ctx, 'r', x + i, CRATE.y + 2, 1, 6);
-    } else if (S.room === 3) {
-      const ph = arcPhase();
-      if (ph < ARC.warn) { if (t % 6 < 3) { px(ctx, 'C', 91, 40 + (t % 5), 2, 2); px(ctx, 'C', 92, 160 - (t % 7), 2, 2); } }
-      else if (ph < ARC.on) {
-        let x = 92;
-        for (let y = 40; y < 164; y += 4) {
-          const nx = 90 + ((y * 7 + t * 5) % 5);
-          px(ctx, t % 2 ? 'W' : 'C', Math.min(x, nx), y, Math.abs(nx - x) + 1, 1);
-          px(ctx, 'C', nx, y, 1, 4); x = nx;
-        }
-      }
-      ctx.drawImage(f.robotFixed ? ART.robotFixed : ART.robotBroken, Math.round(S.robotX) - 8, 156);
-      if (!f.robotFixed && t % 50 < 25) px(ctx, 'R', Math.round(S.robotX) - 1, 156, 2, 1);
-    } else if (S.room === 4) {
-      const s = SPARKS.find(k => k.grate);
-      if (!S.got[s.id]) ctx.drawImage(ART.spark[(t >> 3) % 2], s.x - 4, s.y - 6);
-      px(ctx, 'w', 34, 158, 22, 2); for (let x = 34; x <= 54; x += 4) px(ctx, 'w', x, 158, 2, 18);
-      if (f.won) {
-        px(ctx, (t >> 3) % 2 ? 'C' : 'G', 188, 158, 32, 6);
-        for (let i = 0; i < 4; i++) {
-          const nx = 170 + i * 22 + Math.round(Math.sin((t + i * 20) / 8) * 4), ny = 100 - ((t + i * 17) % 50);
-          const ink = ['Y', 'C', 'M', 'G'][i];
-          px(ctx, ink, nx, ny, 3, 3); px(ctx, ink, nx + 2, ny - 6, 1, 6);
-        }
-      }
-    }
+    const t = S.tick;
+    LV.draw();
     for (const it of S.items) if (it.room === S.room) { const img = ART.items[it.id]; ctx.drawImage(img, Math.round(it.x - img.width / 2), it.y - img.height); }
     for (const s of SPARKS) {
-      if (s.room !== S.room || S.got[s.id] || s.grate) continue;
+      if (s.room !== S.room || !sparkShown(s)) continue;
       ctx.drawImage(ART.spark[(t >> 3) % 2], s.x - 4, s.y - 4 + Math.round(Math.sin((t + s.x) / 10)));
     }
   }
 
   function drawPlayer() {
     const p = S.p, z = ART.zizzy[p.face];
-    if (S.flags.won && S.room === 4) {
-      ctx.drawImage(z.stand, 198, 98);
-      if (S.tick % 8 < 4) px(ctx, 'W', 203, 101, 2, 2);
-      return;
-    }
+    if (LV.drawPlayer && LV.drawPlayer()) return;
     if (p.dead && S.tick % 10 < 5) return;
     const x = Math.round(p.x), y = Math.round(p.y);
     if (p.roll) {
@@ -650,9 +530,9 @@
   function drawStatus() {
     ctx.fillStyle = PAL.K; ctx.fillRect(0, 0, W, TOP);
     for (let i = 0; i < S.lives; i++) ctx.drawImage(ART.life, 4 + i * 8, 4);
-    drawTextCentered(ctx, T('room.' + S.room), 128, 4, PAL.Y);
+    drawTextCentered(ctx, T(LV.roomKey + S.room), 128, 4, PAL.Y);
     ctx.drawImage(ART.spark[0], 222, 4);
-    drawText(ctx, `${S.sparks}/5`, 230, 4, PAL.W);
+    drawText(ctx, `${S.sparks}/${SPARKS.length}`, 230, 4, PAL.W);
     px(ctx, 'b', 0, TOP - 1, W, 1);
   }
 
@@ -666,22 +546,40 @@
 
   function drawDialog() {
     const d = S.dialog, lines = wrapText(d.text.slice(0, d.shown), 28), all = wrapText(d.text, 28);
-    const h = all.length * 9 + 22, y = Math.round(TOP + (H - TOP - h) / 2);
+    // answers: wrapped to 26 characters after a 2-character marker, a gap above each
+    const answers = (d.choices || []).map(c => wrapText(textOf(c), 26));
+    const extra = answers.reduce((n, a) => n + a.length * 9 + 4, answers.length ? 4 : 0);
+    const h = all.length * 9 + 22 + extra, y = Math.max(TOP + 1, Math.round(TOP + (H - TOP - h) / 2));
     px(ctx, 'K', 8, y, 240, h); ctx.strokeStyle = PAL.Y; ctx.lineWidth = 2; ctx.strokeRect(9, y + 1, 238, h - 2);
     lines.forEach((l, i) => drawTextCentered(ctx, l, 128, y + 7 + i * 9, PAL.W));
-    if (d.shown >= d.text.length && S.tick % 40 < 28) drawTextCentered(ctx, T('next'), 128, y + h - 12, PAL.C);
+    const done = d.shown >= d.text.length;
+    if (answers.length) {
+      d.rows = [];
+      let ay = y + 7 + all.length * 9 + 4;
+      answers.forEach((a, i) => {
+        const on = d.sel === i, top = ay - 2;
+        if (done) {
+          if (on) px(ctx, 'b', 14, top, 228, a.length * 9 + 2);
+          a.forEach((l, k) => drawText(ctx, (k ? '  ' : on ? '> ' : '- ') + l, 18, ay + k * 9, on ? PAL.Y : PAL.w));
+        }
+        d.rows.push([top, ay + a.length * 9 + 2]);
+        ay += a.length * 9 + 4;
+      });
+    }
+    if (done && S.tick % 40 < 28) drawTextCentered(ctx, T(answers.length ? 'answer' : 'next'), 128, y + h - 12, PAL.C);
   }
 
   function render() {
     ctx.drawImage(roomLayer(S.room), 0, 0);
     drawWorld();
     drawPlayer();
+    if (LV.overlay) LV.overlay();
     drawStatus();
     if (S.speech && !S.dialog) drawSpeech();
     if (S.dialog) drawDialog();
     else if (S.flags.won) {
       px(ctx, 'K', 28, 22, 200, 13);
-      drawTextCentered(ctx, T('playAgain'), 128, 25, (S.tick >> 4) % 2 ? PAL.W : PAL.Y);
+      drawTextCentered(ctx, T(LV.wonBanner), 128, 25, (S.tick >> 4) % 2 ? PAL.W : PAL.Y);
     }
   }
 
@@ -697,6 +595,7 @@
       el.classList.toggle('empty', !id);
     }
     $('mute').textContent = T(sound.muted ? 'html.soundOff' : 'html.soundOn');
+    for (const sp of $('level').querySelectorAll('[data-v]')) sp.classList.toggle('on', Number(sp.dataset.v) === S.level);
     for (const sp of $('lang').querySelectorAll('[data-l]')) sp.classList.toggle('on', sp.dataset.l === I18N.lang);
   }
 
@@ -709,7 +608,7 @@
     ArrowUp: 'up', KeyW: 'up', KeyQ: 'up',
     ArrowDown: 'down', KeyS: 'down'
   };
-  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', KeyM: 'mute', KeyL: 'lang', KeyR: 'restart' };
+  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', KeyM: 'mute', KeyL: 'lang', KeyR: 'restart', KeyN: 'level' };
 
   let acc = 0, lastTime = performance.now(), manual = false;
   const releaseAll = () => { for (const k in input) input[k] = false; };
@@ -739,7 +638,19 @@
   for (const btn of document.querySelectorAll('[data-act]')) {
     btn.addEventListener('pointerdown', e => { e.preventDefault(); sound.unlock(); actions.push(btn.dataset.act); });
   }
-  canvas.addEventListener('pointerdown', () => { sound.unlock(); if (S.dialog) actions.push('use'); });
+  canvas.addEventListener('pointerdown', e => {
+    sound.unlock();
+    const d = S.dialog;
+    if (!d) return;
+    // a tap on an answer picks it; anywhere else is USE
+    if (d.choices && d.rows && d.shown >= d.text.length) {
+      const r = canvas.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height;
+      const i = d.rows.findIndex(([y0, y1]) => y >= y0 && y <= y1);
+      if (i >= 0) { chooseAnswer(i); actions.push('use'); return; }
+      return;
+    }
+    actions.push('use');
+  });
 
   // ---------------------------------------------------------------------------
   // Main loop: fixed 50 Hz steps; draw only after the state changed
@@ -765,17 +676,29 @@
   }
   I18N.onChange(() => { for (const k in layers) delete layers[k]; applyPage(); updateHud(); render(); });
 
-  S = newState();
+  // what the levels may use
+  const E = {
+    get S() { return S; }, input, sound, ART, T, L, PH, TILE, TOP, COLS, ROWS, W, H,
+    get ctx() { return ctx; }, px, tileImg, cobweb, drawText, drawTextCentered,
+    say, showDialog, ask, has, takeItem, giveItem, collectSpark, win,
+    nextLevel: () => startLevel((S.level + 1) % LEVELS.length), restart
+  };
+  WORLDS.forEach((world, i) => LEVELS.push({ world, ...LOGIC[i](E) }));
+
+  // the level to start: ?level=2 in the address, else the last one played
+  let first = 0;
+  try { first = Number(localStorage.getItem('zizzy-level')) - 1; } catch (e) { /* storage blocked */ }
+  try { const q = Number(new URLSearchParams(location.search).get('level')); if (q) first = q - 1; } catch (e) { /* no location */ }
+  startLevel(LEVELS[first] ? first : 0);
   applyPage();
-  updateHud();
-  intro();
   render();
   requestAnimationFrame(frame);
 
   // Automation hooks used by the test suite (and handy in the console)
   window.zizzy = {
     get state() { return S; },
-    world: window.ZIZZY_WORLD,
+    get world() { return WORLD; },
+    level: n => startLevel(n - 1),
     manual(on) { manual = on; acc = 0; lastTime = performance.now(); },
     setKeys(k) { releaseAll(); Object.assign(input, k); },
     press(a) { actions.push(a); },
