@@ -244,9 +244,8 @@ const play2 = await page.evaluate(() => {
     closeDialogs();
     walkTo(216, "to the rope ladder");
     run({ up: true }, () => P().ground && P().y === 96, 600, "climb the rope ladder");
-    walkTo(184, "to the copper wire"); act("pick");
     walkTo(152, "to the shelf spark");
-    expect(S().got.store && S().inv.includes("wire"), "takes the copper wire and the shelf spark");
+    expect(S().got.store, "takes the shelf spark");
     walkTo(216, "back to the ladder");
     climbDown(2, 176, "down the rope ladder");
     walkToRoom("left", 1, "storeroom -> hall");
@@ -256,6 +255,10 @@ const play2 = await page.evaluate(() => {
     run({ up: true }, () => P().climb && P().y < 51, 600, "climb to the hatch");
     expect(S().room === 1 && !S().flags.lit, "the hatch's electric lock holds while there is no power");
     climbDown(1, 176, "back down");
+    walkTo(212, "to the copper wire under the light circuit"); act("use");
+    expect(/COPPER WIRE/.test(text()) && /E: PICK IT UP/.test(text()), "USE on a thing at Zizzy's feet says what it is");
+    closeDialogs(); act("pick");
+    expect(S().inv.includes("wire"), "the copper wire lies right under the circuit's gap");
     walkTo(224, "to the light circuit"); act("use");
     expect(S().flags.lit && /CIRCUIT/.test(text()), "the copper wire closes the circuit: the bulb lights");
     closeDialogs();

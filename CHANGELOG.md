@@ -6,6 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-09
+
+### Added
+- USE (SPACE) next to a thing lying on the floor says what it is and what it
+  is good for, in both levels. Level 2 also explains the dark hall's locked
+  hatch from the floor and the storeroom's rolled-up rope ladder.
+
+### Changed
+- Level 2: the copper wire now lies in the dark hall, right under the light
+  circuit it repairs (it was on the storeroom's high shelf, a room away).
+
 ## [1.3.0] - 2026-10-08
 
 ### Added

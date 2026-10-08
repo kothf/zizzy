@@ -353,9 +353,11 @@
     return true;
   }
 
+  const itemUnder = p => S.items.find(it => it.room === S.room && Math.abs(it.x - p.x) < 10 && Math.abs(it.y - p.y) < 6);
+
   function pickOrDrop() {
     const p = S.p;
-    const near = S.items.find(it => it.room === S.room && Math.abs(it.x - p.x) < 10 && Math.abs(it.y - p.y) < 6);
+    const near = itemUnder(p);
     if (near && !p.climb) {
       const free = S.inv[S.slot] === null ? S.slot : S.inv.indexOf(null);
       if (free < 0) { say(L('handsFull')); return; }
@@ -382,6 +384,9 @@
   function use() {
     const p = S.p, cx = p.x, cy = p.y - 9;
     const at = (x0, x1, y0, y1) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+    // a thing lying right at Zizzy's feet is the closest point of interest: say what it is
+    const near = !p.climb && itemUnder(p);
+    if (near) { const id = near.id; showDialog(() => T('look.' + id) + '\n\n' + T('look.pick')); return; }
     if (LV.use(at, cx, cy)) return;
     const held = S.inv[S.slot];
     say(held ? () => T('holding', { item: itemName(held) }) : L('nothingToDo'));

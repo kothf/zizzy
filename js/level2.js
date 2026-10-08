@@ -120,6 +120,7 @@
         }
         if (s.room === 1) {
           if (at(168, 200, 20, 90) && p.climb) return (f.lit ? E.say(L('l2.hatch.open')) : D(L('l2.hatch.locked'))), true;
+          if (at(160, 196, 120, 180) && !f.lit) return D(L('l2.hatch.ladder')), true;
           if (at(198, 252, 120, 180)) {
             if (f.lit) return E.say(L('l2.hall.lit')), true;
             if (has('wire')) {
@@ -141,6 +142,7 @@
             }
             return D(tryInGap(held) || L('l2.motor.need')), true;
           }
+          if (at(200, 232, 120, 180) && !f.motorOn) return D(L('l2.ladder.up')), true;
         }
         if (s.room === 3) {
           if (Math.abs(cx - s.voltaX) < 26 && cy > 136) {
