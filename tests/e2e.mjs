@@ -82,7 +82,7 @@ const play = await page.evaluate(() => {
   const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
   Z.manual(true);
   try {
-    expect(S().dialog && S().dialog.menu && S().dialog.choices.length === 2 && S().dialog.sel === 0, "the game opens on the level choice, level 1 picked");
+    expect(S().dialog && S().dialog.menu && S().dialog.choices.length === 3 && S().dialog.sel === 0, "the game opens on the level choice (3 levels), level 1 picked");
     closeDialogs();
     expect(S().level === 0 && S().room === 0 && P().ground, "USE starts level 1 on the cellar floor");
 
@@ -318,6 +318,8 @@ const play2 = await page.evaluate(() => {
     walkTo(40, "back to the switch"); act("use");
     expect(S().flags.won && S().flags.powerOn, "power on: the town lights up, level 2 won");
     closeDialogs();
+    act("use");
+    expect(S().level === 2 && /^LEVEL 3/.test(text()), "USE after the ending goes on to level 3");
     return { ok: true, log, lives: S().lives, seconds: Math.round(S().tick / 50) };
   } catch (e) {
     return { ok: false, log, error: e.message };
@@ -325,6 +327,140 @@ const play2 = await page.evaluate(() => {
 });
 for (const l of play2.log) console.log(`  · ${l}`);
 check(play2.ok, play2.ok ? `level 2 played through without losing a life (${play2.lives} lives, ${play2.seconds} s of game time)` : `level 2: ${play2.error}`);
+
+// Level 3, the radio tower: a bot plays it through, trying the wrong things first
+const play3 = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs, walkTo, walkToRoom, hop, roll, act, where } = window.bot;
+  const log = [];
+  const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
+  const text = () => (S().dialog || {}).text || "";
+  const speech = () => (S().speech || {}).text || "";
+  const climbTo = (room, label) => run({ up: true }, () => S().room === room && P().ground && !P().climb, 900, label);
+  const climbDown = (room, y, label) => run({ down: true }, () => S().room === room && P().ground && !P().climb && P().y === y, 900, label);
+  // the Morse key: hold the down arrow for n ticks, then let go
+  const key = n => { Z.setKeys({ down: true }); Z.step(n); Z.setKeys({}); Z.step(6); };
+  Z.manual(true);
+  try {
+    Z.level(3);
+    expect(S().level === 2 && S().room === 0 && /^LEVEL 3/.test(text()), "level 3 starts in the sound room with its intro");
+    closeDialogs();
+
+    // --- Sound room: the drum shows sound is a vibration; the speaker has no magnet
+    walkTo(112, "to the drum"); act("use");
+    expect(/VIBRATION/.test(text()), "the drum: every sound is a vibration");
+    closeDialogs();
+    walkTo(176, "to the speaker"); act("use");
+    expect(/MAGNET IS MISSING/.test(text()) && !S().flags.speakerOn, "the loudspeaker needs its magnet");
+    closeDialogs();
+
+    // --- Crane yard: the electromagnet lifts iron, not wood; the block becomes a step
+    walkToRoom("left", 1, "sound room -> crane yard");
+    walkTo(228, "to the crane's panel"); act("use");
+    expect(/ELECTROMAGNET/.test(text()), "the panel explains the electromagnet");
+    closeDialogs();
+    expect(S().mode === "crane", "Zizzy works the crane");
+    const px0 = P().x;
+    run({ left: true }, () => S().hookX <= 152, 400, "crane over the wooden crate");
+    expect(P().x === px0, "the arrows move the crane, not Zizzy");
+    act("use");
+    expect(/NOT WOOD/.test(text()) && S().block.state === "rest", "the magnet won't lift the wooden crate");
+    closeDialogs();
+    run({ left: true }, () => S().hookX <= 104, 400, "crane over the iron block");
+    act("use");
+    run({}, () => S().block.state === "held", 400, "the magnet lifts the block");
+    expect(Z.tileAt(1, 12, 19) === ".", "the iron block hangs from the magnet");
+    run({ left: true }, () => S().hookX <= 64, 400, "carry it to the ledge");
+    act("use");
+    run({}, () => S().block.state === "rest", 400, "the block falls");
+    expect(S().block.col === 7 && S().block.row === 18 && Z.tileAt(1, 7, 18) === "X", "magnet off: the block drops beside the ledge");
+    run({ down: true }, () => !S().mode, 5, "step away from the panel");
+    walkTo(192, "back from the wooden crate");
+    roll("left", "roll over the crate");
+    walkTo(84, "to the block");
+    hop(["left", 8], "onto the iron block");
+    expect(P().y === 160, "stands on the iron block");
+    hop(["left", 30], "onto the ledge");
+    expect(P().y === 128, "reaches the high ledge");
+    walkTo(44, "to the ring magnet"); act("pick");
+    expect(S().inv.includes("ringmagnet"), "takes the ring magnet");
+    walkTo(24, "to the spark");
+    expect(S().got.crane, "takes the ledge spark");
+    walkTo(100, "down off the ledge and the block");
+    walkTo(112, "back from the crate");
+    roll("right", "roll back over the crate");
+    walkToRoom("right", 0, "crane yard -> sound room");
+
+    // --- The speaker plays
+    walkTo(176, "to the speaker"); act("use");
+    expect(S().flags.speakerOn && /SOUND/.test(text()) && !S().inv.includes("ringmagnet"), "the magnet makes the speaker play");
+    closeDialogs();
+    walkTo(150, "to the shaken-off spark");
+    expect(S().got.speaker, "takes the speaker's spark");
+
+    // --- Dot's radio room: SOS in Morse code
+    walkTo(40, "to the ladder");
+    climbTo(2, "up into the radio room");
+    walkTo(186, "to Dot"); act("use");
+    expect(/MORSE/.test(text()), "Dot asks for SOS in Morse code");
+    closeDialogs();
+    walkTo(120, "to the Morse key"); act("use");
+    expect(/DOTS AND DASHES/.test(text()), "the key explains dots and dashes");
+    closeDialogs();
+    expect(S().mode === "morse", "Zizzy works the Morse key");
+    key(25);
+    expect(S().morse === "" && /S IS 3 SHORT/.test(speech()), "a long press where a dot belongs: start again");
+    for (const c of "...---...") key(c === "." ? 4 : 22);
+    expect(S().flags.dotDone && S().got.dot && S().inv.includes("coax") && /MORSE CODE/.test(text()), "SOS: Dot hands over a spark and the aerial cable");
+    closeDialogs();
+
+    // --- Listening room: tune past the hiss and the music to the polar station
+    walkToRoom("left", 3, "radio room -> listening room");
+    walkTo(72, "to the receiver"); act("use");
+    expect(/FREQUENCY/.test(text()), "the receiver explains frequencies");
+    closeDialogs();
+    act("use");
+    expect(/HISS/.test(speech()) && !S().flags.tuned, "only hiss at the bottom of the dial");
+    run({ right: true }, () => S().dial >= 30, 400, "tune to the music station");
+    act("use");
+    expect(/MUSIC STATION/.test(text()) && !S().flags.tuned, "a music station isn't the call");
+    closeDialogs();
+    run({ right: true }, () => S().dial >= 72, 400, "tune on");
+    act("use");
+    expect(S().flags.tuned && S().got.tuner && /POLAR STATION/.test(text()) && !S().mode, "the polar station calls: a spark");
+    closeDialogs();
+
+    // --- Roof: wait out the lightning, raise the antenna, plug the cable, call
+    walkToRoom("right", 2, "listening room -> radio room");
+    walkTo(224, "to the roof ladder (Dot stepped aside)");
+    climbTo(4, "up to the roof"); Z.step(1);
+    expect(/THUNDERSTORM/.test(text()), "a thunderstorm on the roof, with a lightning rod");
+    closeDialogs();
+    run({}, () => S().tick % 200 === 72, 260, "wait for the lightning to strike and stop");
+    walkTo(166, "hurry past the rod to the transmitter");
+    expect(S().lives === 3, "passes the rod between strikes");
+    act("use");
+    expect(/NEEDS AN ANTENNA/.test(text()), "the transmitter needs an antenna");
+    closeDialogs();
+    walkTo(96, "to the antenna"); act("use");
+    expect(/LYING FLAT/.test(text()) && !S().flags.cableOn, "a flat antenna doesn't reach far: raise it first");
+    closeDialogs();
+    walkTo(130, "to the winch"); act("use");
+    expect(S().flags.mastUp && /HIGHER/.test(text()), "the winch raises the antenna");
+    closeDialogs();
+    run({}, () => S().mastA >= 1, 300, "the antenna stands up");
+    walkTo(96, "to the antenna"); act("use");
+    expect(S().flags.cableOn && S().sparks === 5 && !S().inv.includes("coax"), "the aerial cable connects it: the fifth spark");
+    closeDialogs();
+    walkTo(166, "to the microphone"); act("use");
+    expect(S().flags.won && /POLAR STATION ANSWERS/.test(text()), "CQ CQ: the polar station answers, level 3 won");
+    closeDialogs();
+    return { ok: true, log, lives: S().lives, seconds: Math.round(S().tick / 50) };
+  } catch (e) {
+    return { ok: false, log, error: e.message };
+  }
+});
+for (const l of play3.log) console.log(`  · ${l}`);
+check(play3.ok, play3.ok ? `level 3 played through without losing a life (${play3.lives} lives, ${play3.seconds} s of game time)` : `level 3: ${play3.error}`);
 
 // Level 2 hazard: the puddle under the live cable
 const puddle = await page.evaluate(() => {
@@ -338,17 +474,32 @@ const puddle = await page.evaluate(() => {
 });
 check(puddle.died && puddle.safe, "the puddle under the live cable costs a life and Zizzy respawns before it");
 
+// Level 3 hazard: lightning at the rod
+const bolt = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.level(3); closeDialogs();
+  Object.assign(S(), { room: 4, roofSeen: true }); Object.assign(P(), { x: 224, y: 176 });
+  run({}, () => S().tick % 200 === 10, 260, "until just before a strike");
+  run({ left: true }, () => P().x <= 200, 200, "to the rod");
+  run({}, () => !!S().dialog, 200, "the strike");
+  const died = S().lives === 2 && /LIGHTNING/.test(S().dialog.text);
+  closeDialogs();
+  return { died, safe: S().room === 4 && P().ground && (P().x > 222 || P().x < 178) };
+});
+check(bolt.died && bolt.safe, "standing by the lightning rod in a strike costs a life; Zizzy respawns away from it");
+
 // The level button: asks once while playing, remembered, ?level= in the address
 {
   const lv = await page.evaluate(() => {
     const { Z, S, closeDialogs } = window.bot;
     closeDialogs(); Z.step(5);
     Z.press("level"); Z.step(1);
-    const asked = S().level === 1 && /AGAIN FOR LEVEL 1/.test((S().speech || {}).text || "");
+    // from the last level the button wraps round to level 1
+    const asked = S().level === 2 && /AGAIN FOR LEVEL 1/.test((S().speech || {}).text || "");
     Z.press("level"); Z.step(1);
     return { asked, switched: S().level === 0, stored: localStorage.getItem("zizzy-level") };
   });
-  check(lv.asked && lv.switched && lv.stored === "1", "the level button asks once while playing, then switches level (and remembers it)");
+  check(lv.asked && lv.switched && lv.stored === "1", "the level button asks once while playing, then switches level, from 3 round to 1 (and remembers it)");
   await page.goto(url + "?level=2"); await page.waitForFunction(() => window.zizzy);
   const q = await page.evaluate(() => ({ level: window.zizzy.state.level, on: document.querySelector('#level [data-v="1"]').classList.contains("on") }));
   check(q.level === 1 && q.on, "?level=2 in the address opens level 2, and the HUD shows it");
@@ -361,7 +512,7 @@ check(puddle.died && puddle.safe, "the puddle under the live cable costs a life 
   await page.evaluate(() => localStorage.setItem("zizzy-level", "2"));
   await page.goto(url); await page.waitForFunction(() => window.zizzy);
   const m = await page.evaluate(() => { const Z = window.zizzy; Z.manual(true); Z.step(80); const d = Z.state.dialog; return { menu: !!(d && d.menu), sel: d && d.sel, text: d && d.text }; });
-  check(m.menu && m.sel === 1 && /CHOOSE A LEVEL/.test(m.text), "without ?level= the start screen offers both levels, the last one played picked");
+  check(m.menu && m.sel === 1 && /CHOOSE A LEVEL/.test(m.text), "without ?level= the start screen offers every level, the last one played picked");
   const box = await page.locator("#screen").boundingBox();
   const row = await page.evaluate(() => window.zizzy.state.dialog.rows[0]);
   await page.mouse.click(box.x + box.width / 2, box.y + (row[0] + row[1]) / 2 * box.height / 192);

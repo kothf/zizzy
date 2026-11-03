@@ -6,6 +6,28 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-03
+
+### Added
+- **Level 3, the Radio Tower**: five new rooms with first lessons in radio for
+  players of about 7 to 10, in English and Russian. A drum shows that sound is
+  a vibration and a loudspeaker needs its magnet back; an electromagnet crane
+  lifts the iron block (not the wooden crate) to make a step; Dot the operator
+  robot asks for SOS in Morse code, keyed by holding ↓ (tap = dot, longer =
+  dash); a receiver's dial is tuned past the hiss and a music station to the
+  polar station's call; on the roof, in a thunderstorm, Zizzy passes the
+  lightning rod between strikes, raises the antenna and plugs in its cable to
+  call "CQ". Wrong tries explain why; only the lightning costs a life.
+- Machines that take over the arrow keys while Zizzy works them (the engine's
+  new `busy()` hook), with a hint line at the bottom of the screen.
+- Arrow glyphs in the 8-px font; a ring magnet, an aerial cable and Dot.
+- The start screen lists all three levels; with more than two answers the
+  arrows move the pick one step at a time (and the 3 key picks the third).
+
+### Changed
+- Finishing level 2 leads on to level 3; the LEVEL button and the N key go
+  1 → 2 → 3 → 1.
+
 ## [1.4.1] - 2026-10-09
 
 ### Fixed

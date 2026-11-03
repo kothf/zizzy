@@ -33,11 +33,30 @@ about 7 to 10. The lights have gone out, and every puzzle is one idea:
 - *Roof Substation:* a broken cable sparks over a puddle. Switch the power off
   first, fix the cable wearing rubber gloves, then switch on and light up the town.
 
-Wrong tries explain instead of punishing; only the live puddle costs a life.
-The game opens on a start screen where you choose the level (the one played
-last is already picked). Finishing level 1 leads on to level 2, the LEVEL
-button (key N) switches at any time, and `?level=2` in the address skips the
-start screen.
+**Level 3, the Radio Tower** — first lessons in radio, for the same age. The
+town has light again, but the radio tower on the hill is silent:
+
+- *Sound Room:* a drum makes the rice on it jump (sound is a vibration), and a
+  loudspeaker has lost its magnet (a coil pushes against a magnet to shake the cone).
+- *Crane Yard:* an electromagnet crane, a magnet you switch on and off. It
+  won't lift the wooden crate, only the iron block, which becomes a step up to
+  the ring magnet on a high ledge.
+- *Dot's Radio Room:* Dot the operator robot wants SOS in Morse code. Hold ↓ on
+  the key: a tap is a dot, a longer press a dash.
+- *Listening Room:* every station has its own frequency. Turn the dial past
+  the hiss and a music station to the polar station's call.
+- *Antenna Roof:* a thunderstorm. Pass the lightning rod between strikes, raise
+  the antenna with the winch (higher reaches farther), plug in the aerial
+  cable, and call "CQ" into the microphone.
+
+The crane, the Morse key and the dial take over the arrow keys while Zizzy
+works them (a hint line at the bottom says how; ↓ or ← → steps away).
+
+Wrong tries explain instead of punishing; only the live puddle (level 2) and
+the lightning (level 3) cost a life. The game opens on a start screen where
+you choose the level (the one played last is already picked). Finishing a
+level leads on to the next, the LEVEL button (key N) switches at any time, and
+`?level=2` or `?level=3` in the address skips the start screen.
 
 | | Keyboard | Touch |
 |---|---|---|
@@ -48,8 +67,9 @@ start screen.
 | Pick up / drop | E (G) | PICK / DROP |
 | Choose hand | Tab, 1, 2 | tap a hand |
 | Sound on/off | M | SOUND |
-| Choose an answer (quiz) | ← → or ↑ ↓, then Space | tap it |
-| Level 1 / 2 | N | LEVEL |
+| Choose an answer (quiz, start screen) | ← → or ↑ ↓, then Space | tap it |
+| Work a machine (crane, dial, Morse key) | ← →, ↓, Space | ◀ ▶ ▼ USE |
+| Level 1 / 2 / 3 | N | LEVEL |
 | Language: English / Russian | L | EN / RU |
 | Restart | R twice | — |
 
@@ -96,12 +116,14 @@ The end-to-end test drives the game through the same inputs a player uses
 (keys held tick by tick): it rides the raft, catches the floating spark, opens
 the trapdoor, times the jump past the Tesla coil and wins; then it plays level 2,
 trying the insulators before the spoon, running the dynamo and answering one
-quiz question wrong first; then it checks deaths, respawning, game over, the
+quiz question wrong first; then level 3, trying the crane on the wooden crate,
+keying a wrong Morse dash, stopping on the music station and dodging the
+lightning; then it checks deaths, respawning, game over, the
 level switch and the 50 Hz timing.
 
-Each level is a world (`js/world.js`, `js/world2.js`: the tile maps, items and
-sparks) plus its logic (`js/level1.js`, `js/level2.js`: puzzles, hazards and
-scenery as hooks); `js/game.js` is the engine they share.
+Each level is a world (`js/world.js`, `js/world2.js`, `js/world3.js`: the tile
+maps, items and sparks) plus its logic (`js/level1.js`, `js/level2.js`,
+`js/level3.js`: puzzles, hazards and scenery as hooks); `js/game.js` is the engine they share.
 
 Pages load their scripts with `?v=dev`; packaging stamps the release version
 into every asset URL so browsers and CDNs never mix two versions.
