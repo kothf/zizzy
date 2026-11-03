@@ -1,12 +1,14 @@
 'use strict';
 /* =============================================================================
    Zizzy — engine: fixed 50 Hz simulation, tile collision, dialogs, rendering.
-   Each level brings its world (world.js, world2.js) and its puzzle logic
-   (level1.js, level2.js); the engine calls the level's hooks:
+   Each level brings its world (world.js, world2.js, world3.js) and its puzzle
+   logic (level1.js, level2.js, level3.js); the engine calls the level's hooks:
      init(S)                 its flags and moving parts in a fresh state
      blocked(room,row,col)   a tile that puzzle state puts over the map, or null
      support(x,yb,climbing)  'crate' when a moving platform carries Zizzy there
      conveyor()              x speed a moving floor adds while Zizzy stands on it
+     busy()                  true while Zizzy works a machine (a crane, a dial, a
+                             Morse key): Zizzy stands still and the level reads the keys
      hazards                 [{ room, x0..y1, active(), sfx, msg }]
      tick()                  per-step world animation (runs during dialogs too)
      use(at, cx, cy)         USE next to something; true when it handled it
@@ -338,8 +340,19 @@
   }
   function chooseAnswer(i) {
     const d = S.dialog;
-    if (!d || !d.choices || d.shown < d.text.length) return;
+    if (!d || !d.choices || d.shown < d.text.length || i < 0 || i >= d.choices.length) return;
     if (d.sel !== i) { d.sel = i; sound.blip(); }
+  }
+  /** Arrows over the answers: with two, up/left = the first and down/right = the second;
+      with more, each new press moves the pick by one. */
+  let held = 0;
+  function steerAnswer() {
+    const d = S.dialog, dir = input.up || input.left ? -1 : input.down || input.right ? 1 : 0;
+    const fresh = dir && dir !== held;
+    held = dir;
+    if (!dir) return;
+    if (d.choices.length <= 2) { chooseAnswer(dir < 0 ? 0 : 1); return; }
+    if (fresh) chooseAnswer(d.sel < 0 ? 0 : Math.max(0, Math.min(d.choices.length - 1, d.sel + dir)));
   }
 
   const has = id => S.inv.includes(id);
@@ -440,7 +453,8 @@
       S.levelArmed = 100; S.dialog = null; say(L('levelPrompt', { n: other + 1 }));
       return;
     }
-    if (S.dialog && S.dialog.choices && (a === 'slot0' || a === 'slot1')) { chooseAnswer(Number(a.slice(-1))); return; }
+    if (S.dialog && S.dialog.choices && /^slot\d$/.test(a)) { chooseAnswer(Number(a.slice(-1))); return; }
+    if (a === 'slot2') return;                          // the 3 key only picks a third answer
     if (a === 'slot0' || a === 'slot1' || a === 'slot') {
       S.slot = a === 'slot' ? 1 - S.slot : Number(a.slice(-1));
       updateHud();
@@ -465,13 +479,15 @@
       const d = S.dialog;
       if (d.shown < d.text.length) { d.shown = Math.min(d.text.length, d.shown + 2); if (S.tick % 3 === 0) sound.blip(); }
       // answers: up/left = the first, down/right = the second
-      else if (d.choices) { if (input.up || input.left) chooseAnswer(0); else if (input.down || input.right) chooseAnswer(1); }
+      else if (d.choices) steerAnswer();
       return;
     }
     if (S.speech && --S.speech.t <= 0) S.speech = null;
     if (S.flags.won) return;
 
-    updatePlayer();
+    // working a machine: Zizzy stands still and the level reads the keys in its tick()
+    if (LV.busy && LV.busy()) { const p = S.p; p.vx = 0; p.walkT = 0; }
+    else updatePlayer();
     checkEdges();
     checkHazards();
     if (!S.dialog) checkSparks();
@@ -621,7 +637,7 @@
     ArrowUp: 'up', KeyW: 'up', KeyQ: 'up',
     ArrowDown: 'down', KeyS: 'down'
   };
-  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', KeyM: 'mute', KeyL: 'lang', KeyR: 'restart', KeyN: 'level' };
+  const ACTIONKEYS = { Space: 'use', Enter: 'use', KeyE: 'pick', KeyG: 'pick', Tab: 'slot', Digit1: 'slot0', Digit2: 'slot1', Digit3: 'slot2', KeyM: 'mute', KeyL: 'lang', KeyR: 'restart', KeyN: 'level' };
 
   let acc = 0, lastTime = performance.now(), manual = false;
   const releaseAll = () => { for (const k in input) input[k] = false; };
@@ -699,7 +715,7 @@
   WORLDS.forEach((world, i) => LEVELS.push({ world, ...LOGIC[i](E) }));
 
   // ?level=2 in the address starts that level (links, embeds); otherwise the start screen
-  // offers both, with the one played last picked
+  // offers them all, with the one played last picked
   let last = 0, asked = 0;
   try { last = Number(localStorage.getItem('zizzy-level')) - 1; } catch (e) { /* storage blocked */ }
   try { asked = Number(new URLSearchParams(location.search).get('level')); } catch (e) { /* no location */ }

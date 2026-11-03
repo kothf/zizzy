@@ -188,6 +188,24 @@ const ITEM_ART = {
     'gggggg',
     'gggggg'
   ],
+  // level 3: the loudspeaker's magnet and the aerial cable
+  ringmagnet: [
+    '..wwww..',
+    '.wWWWWw.',
+    'wwKKKKww',
+    'wK....Kw',
+    'wwKKKKww',
+    '.wwwwww.',
+    '..wwww..'
+  ],
+  coax: [
+    '..cccc......',
+    '.c....c.....',
+    'c..cc..c....',
+    'c.c..c.c....',
+    '.c....ccccWW',
+    '..cccc....W.'
+  ],
   gloves: [
     '.Y.Y.....Y.Y.',
     'YYYY....YYYY.',
@@ -247,6 +265,8 @@ function buildArt() {
     // Volta the teacher robot (level 2): magenta, dark until her battery is in
     voltaOff: sprite(ROBOT, { E: 'K', b: 'm', Y: 'w', R: 'K' }),
     voltaOn: sprite(ROBOT, { E: 'C', b: 'm', R: 'G' }),
+    // Dot the radio operator robot (level 3): cyan, with amber eyes
+    dot: sprite(ROBOT, { E: 'Y', b: 'c', R: 'M', Y: 'W' }),
     spark: [sprite(SPARK), sprite(SPARK, { Y: 'W' })],
     items: Object.fromEntries(Object.entries(ITEM_ART).map(([k, v]) => [k, sprite(v)])),
     life: sprite(LIFE_ICON)

@@ -66,6 +66,15 @@ class Beeper {
   fizz() { this.noise(0.4, { vol: 0.9, lowpass: 2500 }); this.tone(900, 0.4, { to: 80 }); }
   hurt() { this.tone(500, 0.45, { type: 'sawtooth', to: 50 }); }
   beep() { this.tone(1200, 0.04); this.tone(1600, 0.04, { at: 0.06 }); }
+  /** The Morse key: a steady tone while it is held down. */
+  key(on) {
+    if (on && !this.keyOsc && !this.muted && this.ctx) {
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'square'; o.frequency.value = 700; g.gain.value = 0.5;
+      o.connect(g); g.connect(this.out); o.start();
+      this.keyOsc = o;
+    } else if (!on && this.keyOsc) { this.keyOsc.stop(); this.keyOsc = null; }
+  }
   blip() { this.tone(760 + Math.random() * 160, 0.012, { vol: 0.6 }); }
 
   /** "The wireless sings again" — an original 16-bar jingle. */

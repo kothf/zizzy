@@ -10,11 +10,12 @@ import { runInThisContext } from "node:vm";
 
 runInThisContext(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"), { filename: "world.js" });
 runInThisContext(readFileSync(new URL("../js/world2.js", import.meta.url), "utf8"), { filename: "world2.js" });
+runInThisContext(readFileSync(new URL("../js/world3.js", import.meta.url), "utf8"), { filename: "world3.js" });
 const WORLDS = globalThis.ZIZZY_WORLDS;
 const solid = ch => ch === "#" || ch === "X";
 
-test("two levels, each with its own world", () => {
-  assert.equal(WORLDS.length, 2);
+test("three levels, each with its own world", () => {
+  assert.equal(WORLDS.length, 3);
   assert.equal(WORLDS[0], globalThis.ZIZZY_WORLD);
 });
 
@@ -115,10 +116,15 @@ test("every character on the canvas exists in the 8-px font, in both languages",
 test("texts fit their boxes in both languages", () => {
   for (const lang of ["en", "ru"]) {
     const S = STRINGS[lang];
-    for (let i = 0; i < 5; i++) for (const p of ["room.", "l2.room."]) assert.ok(S[p + i].length <= 22, `${lang} ${p}${i} name fits the status line between lives and sparks`);
+    for (let i = 0; i < 5; i++) for (const p of ["room.", "l2.room.", "l3.room."]) assert.ok(S[p + i].length <= 22, `${lang} ${p}${i} name fits the status line between lives and sparks`);
     for (const k of ["sign.deep", "sign.stop"]) assert.ok(S[k].length <= 4, `${lang} ${k} fits the painted sign`);
     assert.ok(S["l2.sign.danger"].length <= 6, `${lang} the danger sign fits its board`);
-    for (const k of ["playAgain", "nextLevel"]) assert.ok(S[k].length <= 25, `${lang} ${k} fits its 200 px banner`);
+    // the hint under a machine Zizzy works (crane, Morse key, dial): one line across the screen
+    for (const k of ["l3.crane.hint", "l3.morse.hint", "l3.tune.hint"]) assert.ok(S[k].length <= 31, `${lang} ${k} fits one line`);
+    // the start screen: the title and every level on one screen
+    const menu = [1, 2, 3].map(i => wrap(S[`menu.l${i}`], 26));
+    assert.ok(menu.flat().every(l => l.length <= 26) && wrap(S["menu.title"], 28).length + menu.flat().length <= 14, `${lang} the start screen fits`);
+    for (const k of ["playAgain", "nextLevel", "nextLevel3"]) assert.ok(S[k].length <= 25, `${lang} ${k} fits its 200 px banner`);
     // quiz answers: 26 characters a line after the "> " marker; question and both answers on one screen
     for (let q = 1; q <= 4; q++) {
       const a = [S[`l2.q${q}.a`], S[`l2.q${q}.b`]].map(t => wrap(t, 26));

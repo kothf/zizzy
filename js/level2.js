@@ -70,7 +70,7 @@
     }
 
     return {
-      roomKey: 'l2.room.', intro: 'l2.intro', wonBanner: 'playAgain',
+      roomKey: 'l2.room.', intro: 'l2.intro', wonBanner: 'nextLevel3',
       init(st) {
         Object.assign(st.flags, { lit: false, motorOn: false, charged: false, voltaOn: false, quizDone: false, powerOn: true, cableFixed: false });
         Object.assign(st, { charge: 0, beltT: 0, voltaX: VOLTA_HOME, hatchHint: 0 });
@@ -175,7 +175,7 @@
         }
         return false;
       },
-      onWonUse: () => E.restart(),
+      onWonUse: () => E.nextLevel(),
 
       decor: {
         0(g) {
