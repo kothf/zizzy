@@ -112,7 +112,7 @@
         if (s.room === 1 && !f.lit && p.climb && p.y < 60 && E.input.up && !s.hatchHint) { s.hatchHint = 250; E.say(L('l2.hatch.locked')); }
       },
 
-      use(at, cx, cy) {
+      use(at, cx, cy, auto) {
         const s = S(), p = s.p, f = s.flags, D = E.showDialog, has = E.has, sound = E.sound;
         const held = s.inv[s.slot] || s.inv[1 - s.slot];
         if (s.room === 0) {
@@ -158,6 +158,7 @@
         }
         if (s.room === 4) {
           if (at(12, 64, 120, 180)) {
+            if (auto) return E.hint(L('useIt')), true;   // a switch is flipped on purpose, never by standing by it
             if (f.powerOn) { f.powerOn = false; sound.clank(); return D(L('l2.switch.off')), true; }
             if (!f.cableFixed) { f.powerOn = true; sound.zap(); return D(L('l2.switch.on')), true; }
             if (s.sparks < WORLD.sparks.length) return D(L('l2.switch.need', { n: s.sparks })), true;

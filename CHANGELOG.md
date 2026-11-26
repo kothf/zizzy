@@ -6,6 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Look by standing still**: stop by something for a moment (under it, in
+  front of it, or on a ladder by it) and Zizzy reads it by itself, the same as
+  USE. A text already read is not shown again, walking past shows nothing, and
+  a held item that fits is used. Machines that take over the arrows (the crane,
+  the Morse key, the dial) and the power switch only explain themselves and
+  then wait for USE.
+
+### Fixed
+- Level 3: Zizzy could sink into the floor of the crane yard. With the hook
+  driven all the way right, the iron block landed half on top of Zizzy at the
+  panel; every jump from inside it then pushed Zizzy a tile down. The hook now
+  stops short of the panel, a body caught inside a block is lifted out on top
+  of it, and a head bump never moves Zizzy down.
+
 ## [1.5.0] - 2026-11-03
 
 ### Added

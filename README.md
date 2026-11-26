@@ -63,6 +63,7 @@ level leads on to the next, the LEVEL button (key N) switches at any time, and
 | Walk | ← → or A D (O P) | ◀ ▶ |
 | Jump (somersault while moving) / climb up | ↑ or W (Q) | ▲ |
 | Climb down | ↓ or S | ▼ |
+| Look at something | stand still by it | — |
 | Use / talk / next | Space or Enter | USE |
 | Pick up / drop | E (G) | PICK / DROP |
 | Choose hand | Tab, 1, 2 | tap a hand |

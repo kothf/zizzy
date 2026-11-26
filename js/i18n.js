@@ -32,7 +32,7 @@
       'look.wire': 'A LONG COPPER WIRE. COPPER IS A METAL, SO ELECTRICITY FLOWS THROUGH IT - AND IT IS LONG ENOUGH TO BRIDGE A WIDE GAP. THE LIGHT CIRCUIT IS RIGHT HERE!',
       'look.battery': 'A CHARGED BATTERY, FULL OF THE ELECTRICITY YOUR RUNNING MADE. SOMEONE WITH A FLAT BATTERY WOULD LOVE IT.',
       'look.gloves': 'RUBBER GLOVES. RUBBER IS AN INSULATOR, SO THEY KEEP HANDS SAFE FROM ELECTRICITY.',
-      nothingToPick: 'NOTHING HERE TO PICK UP.', cantDrop: "CAN'T DROP THAT HERE.", nothingToDo: 'NOTHING TO DO HERE.',
+      nothingToPick: 'NOTHING HERE TO PICK UP.', cantDrop: "CAN'T DROP THAT HERE.", nothingToDo: 'NOTHING TO DO HERE.', useIt: 'PRESS USE TO WORK IT',
       'valve.shut': 'THE VALVE IS SHUT TIGHT.',
       'valve.need': "A BIG STEAM VALVE. THE WHEEL IS STUCK FAST - YOU'LL NEED A TOOL TO TURN IT.",
       'valve.done': 'YOU WEDGE THE WRENCH IN THE WHEEL AND HEAVE... THE STEAM SPLUTTERS AND STOPS!\n\n(THE WRENCH IS STUCK THERE NOW.)',
@@ -169,7 +169,7 @@
       'html.lang': 'Language: English. Switch to Russian (L)',
       'html.level': 'LEVEL', 'html.levelAria': 'Level 1, 2 or 3. Switch level (N)',
       'html.inventory': 'Inventory', 'html.controls': 'Touch controls', 'html.screen': 'Zizzy game screen',
-      'html.keys': '<b>←/→</b> or <b>A/D</b> walk · <b>↑</b>/<b>W</b> jump (climb on ladders) · <b>↓</b>/<b>S</b> climb down · <b>SPACE</b>/<b>ENTER</b> use · <b>E</b> pick up / drop · <b>TAB</b> or <b>1</b>/<b>2</b> choose hand · <b>M</b> sound · <b>L</b> language · <b>N</b> level · <b>R R</b> restart'
+      'html.keys': '<b>←/→</b> or <b>A/D</b> walk · <b>↑</b>/<b>W</b> jump (climb on ladders) · <b>↓</b>/<b>S</b> climb down · <b>SPACE</b>/<b>ENTER</b> use (or just stand by a thing to look at it) · <b>E</b> pick up / drop · <b>TAB</b> or <b>1</b>/<b>2</b> choose hand · <b>M</b> sound · <b>L</b> language · <b>N</b> level · <b>R R</b> restart'
     },
     ru: {
       'room.0': 'ПЫЛЬНЫЙ ПОДВАЛ', 'room.1': 'КОТЕЛЬНАЯ', 'room.2': 'ЗАТОПЛЕННЫЙ ТОННЕЛЬ', 'room.3': 'МАСТЕРСКАЯ', 'room.4': 'РАДИОЧЕРДАК',
@@ -194,7 +194,7 @@
       'look.wire': 'ДЛИННЫЙ МЕДНЫЙ ПРОВОД. МЕДЬ - МЕТАЛЛ, ТОК ЧЕРЕЗ НЕЁ ТЕЧЁТ, А ПРОВОДА ХВАТИТ, ЧТОБЫ ЗАКРЫТЬ ШИРОКИЙ РАЗРЫВ. ЦЕПЬ С ЛАМПОЧКОЙ - ПРЯМО ТУТ!',
       'look.battery': 'ЗАРЯЖЕННАЯ БАТАРЕЙКА, ПОЛНАЯ ТОКА, КОТОРЫЙ ДАЛ ТВОЙ БЕГ. ТОМУ, У КОГО БАТАРЕЙКА СЕЛА, ОНА ОЧЕНЬ ПРИГОДИТСЯ.',
       'look.gloves': 'РЕЗИНОВЫЕ ПЕРЧАТКИ. РЕЗИНА - ИЗОЛЯТОР, ПОЭТОМУ ОНИ БЕРЕГУТ РУКИ ОТ ТОКА.',
-      nothingToPick: 'ЗДЕСЬ НЕЧЕГО ВЗЯТЬ.', cantDrop: 'ЗДЕСЬ ЭТО НЕ ПОЛОЖИТЬ.', nothingToDo: 'ЗДЕСЬ НЕЧЕГО ДЕЛАТЬ.',
+      nothingToPick: 'ЗДЕСЬ НЕЧЕГО ВЗЯТЬ.', cantDrop: 'ЗДЕСЬ ЭТО НЕ ПОЛОЖИТЬ.', nothingToDo: 'ЗДЕСЬ НЕЧЕГО ДЕЛАТЬ.', useIt: 'НАЖМИ ДЕЙСТВИЕ, ЧТОБЫ ВКЛЮЧИТЬ',
       'valve.shut': 'ВЕНТИЛЬ НАКРЕПКО ЗАКРЫТ.',
       'valve.need': 'БОЛЬШОЙ ПАРОВОЙ ВЕНТИЛЬ. МАХОВИК НАМЕРТВО ЗАКИС - НУЖЕН ИНСТРУМЕНТ, ЧТОБЫ ЕГО ПОВЕРНУТЬ.',
       'valve.done': 'ТЫ ВСТАВЛЯЕШЬ КЛЮЧ В МАХОВИК И НАЛЕГАЕШЬ... ПАР ФЫРКАЕТ И СТИХАЕТ!\n\n(КЛЮЧ ТАК И ЗАСТРЯЛ В МАХОВИКЕ.)',
@@ -328,7 +328,7 @@
       'html.lang': 'Язык: русский. Переключить на английский (L)',
       'html.level': 'УРОВЕНЬ', 'html.levelAria': 'Уровень 1, 2 или 3. Сменить уровень (N)',
       'html.inventory': 'Инвентарь', 'html.controls': 'Сенсорное управление', 'html.screen': 'Экран игры Зиззи',
-      'html.keys': '<b>←/→</b> или <b>A/D</b> — идти · <b>↑</b>/<b>W</b> — прыжок (по лестнице вверх) · <b>↓</b>/<b>S</b> — вниз по лестнице · <b>ПРОБЕЛ</b>/<b>ENTER</b> — действие · <b>E</b> — взять / положить · <b>TAB</b> или <b>1</b>/<b>2</b> — выбрать руку · <b>M</b> — звук · <b>L</b> — язык · <b>N</b> — уровень · <b>R R</b> — заново'
+      'html.keys': '<b>←/→</b> или <b>A/D</b> — идти · <b>↑</b>/<b>W</b> — прыжок (по лестнице вверх) · <b>↓</b>/<b>S</b> — вниз по лестнице · <b>ПРОБЕЛ</b>/<b>ENTER</b> — действие (или просто встань рядом, чтобы рассмотреть) · <b>E</b> — взять / положить · <b>TAB</b> или <b>1</b>/<b>2</b> — выбрать руку · <b>M</b> — звук · <b>L</b> — язык · <b>N</b> — уровень · <b>R R</b> — заново'
     }
   };
   const LANGS = Object.keys(STRINGS);

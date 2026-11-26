@@ -43,6 +43,8 @@ await page.waitForFunction(() => window.zizzy);
 // Bot helpers, installed in the page so a whole run is one synchronous call
 await page.evaluate(() => {
   const Z = window.zizzy, S = () => Z.state, P = () => Z.state.p;
+  // the scripted bot reads things with USE on purpose; standing still looks by itself (tested on its own below)
+  Z.autoLook(false);
   const where = () => `room ${S().room} x=${P().x.toFixed(1)} y=${P().y.toFixed(1)} ground=${P().ground} climb=${P().climb}` +
     (S().dialog ? ` dialog="${S().dialog.text.slice(0, 50)}"` : "");
   const run = (keys, done, max, label) => {
@@ -487,6 +489,64 @@ const bolt = await page.evaluate(() => {
   return { died, safe: S().room === 4 && P().ground && (P().x > 222 || P().x < 178) };
 });
 check(bolt.died && bolt.safe, "standing by the lightning rod in a strike costs a life; Zizzy respawns away from it");
+
+// Level 3: the crane can't drop its block on Zizzy, and a body stuck in a block is
+// lifted out on top of it (it used to sink a tile into the floor with every jump)
+const stuck = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.level(3); closeDialogs();
+  Object.assign(S(), { room: 1, craneSeen: true, mode: "crane", hookX: 104 });
+  Object.assign(P(), { x: 209, y: 176, ground: true });
+  Z.press("use"); Z.step(1);
+  run({}, () => S().block.state === "held", 400, "lift the block");
+  Z.setKeys({ right: true }); Z.step(150);                     // as far right as the hook goes
+  const hookMax = S().hookX;
+  Z.setKeys({}); Z.press("use"); Z.step(1);
+  run({}, () => S().block.state === "rest", 400, "drop it");
+  const clear = S().block.col * 8 + 16 <= P().x - 5;
+  run({ down: true }, () => !S().mode, 5, "step away");
+  // force the old overlap: the block right where Zizzy stands, then jump a few times
+  Object.assign(S().block, { col: 24, row: 18, y: 160 });
+  Object.assign(P(), { x: 209, y: 176, ground: true });
+  let lowest = 0;
+  for (let i = 0; i < 4; i++) { Z.setKeys({ up: true }); Z.step(2); Z.setKeys({}); for (let k = 0; k < 60; k++) { Z.step(1); lowest = Math.max(lowest, P().y); } }
+  return { hookMax, clear, lowest, top: P().y === 160 && P().ground };
+}).catch(e => ({ error: e.message }));
+check(!stuck.error && stuck.clear && stuck.hookMax <= 192, `the crane stops short of the panel, so the block never lands on Zizzy (hook at ${stuck.hookMax})`);
+check(!stuck.error && stuck.lowest <= 176 && stuck.top, `a body stuck in a block climbs out on top and never sinks into the floor (lowest y ${stuck.lowest})`);
+
+// Standing still by something shows it without USE: once, and a machine waits for USE
+const look = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.autoLook(true);
+  Z.level(3); closeDialogs();
+  const out = {};
+  run({ left: true }, () => P().x <= 116, 400, "to the drum");
+  run({}, () => !!S().dialog, 30, "stand by the drum");
+  out.drum = /DRUM/.test(S().dialog.text);
+  closeDialogs();
+  Z.step(60);
+  out.once = !S().dialog;                                    // standing on: not again
+  run({ left: true }, () => P().x <= 96, 100, "a step along"); Z.setKeys({}); Z.step(40);
+  out.notRepeated = !S().dialog;                             // already read: not shown again
+  out.press = (Z.press("use"), Z.step(1), /DRUM/.test((S().dialog || {}).text || ""));   // USE still shows it
+  closeDialogs();
+  // walking past doesn't stop for things; the crane explains itself but doesn't grab the arrows
+  Object.assign(S(), { room: 1 }); Object.assign(P(), { x: 180, y: 176, ground: true }); S().autoSpot = null;
+  run({ right: true }, () => P().x >= 228, 200, "to the crane panel");
+  out.walking = !S().dialog;
+  run({}, () => !!S().dialog, 30, "stand at the panel");
+  out.crane = /ELECTROMAGNET/.test(S().dialog.text);
+  closeDialogs();
+  out.noMode = !S().mode;
+  Z.press("use"); Z.step(1);
+  out.useWorks = S().mode === "crane";
+  run({ down: true }, () => !S().mode, 5, "step away");
+  Z.autoLook(false);
+  return out;
+}).catch(e => ({ error: e.message }));
+check(!look.error && look.drum && look.once && look.notRepeated && look.press, `standing by the drum shows what it is without USE, once (${JSON.stringify(look)})`);
+check(!look.error && look.walking && look.crane && look.noMode && look.useWorks, "walking past shows nothing; at the crane the text comes up by itself, but working it still needs USE");
 
 // The level button: asks once while playing, remembered, ?level= in the address
 {
