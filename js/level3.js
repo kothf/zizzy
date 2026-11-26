@@ -21,8 +21,9 @@
     const S = () => E.S;
     const WORLD = root.ZIZZY_WORLDS[2], spark = id => WORLD.sparks.find(s => s.id === id);
 
-    // crane yard: the trolley's hook runs along the beam; the iron block is 2x2 tiles
-    const CRANE = { min: 64, max: 200, home: 184, top: 56, beam: 36 };
+    // crane yard: the trolley's hook runs along the beam; the iron block is 2x2 tiles.
+    // The hook stops short of the panel, so the block can never be dropped on Zizzy
+    const CRANE = { min: 64, max: 192, home: 184, top: 56, beam: 36 };
     const BLOCK0 = { col: 12, row: 18 };
     const CRATE_X = 152;                               // centre of the wooden crate (cols 18-19)
     const yard = WORLD.rooms[1].grid;
@@ -136,7 +137,7 @@
     }
 
     return {
-      roomKey: 'l3.room.', intro: 'l3.intro', wonBanner: 'playAgain',
+      roomKey: 'l3.room.', intro: 'l3.intro', wonBanner: 'nextLevel4',
       init(st) {
         Object.assign(st.flags, { speakerOn: false, dotDone: false, tuned: false, mastUp: false, cableOn: false });
         Object.assign(st, {
@@ -190,7 +191,7 @@
         }
       },
 
-      use(at, cx, cy) {
+      use(at, cx, cy, auto) {
         const s = S(), p = s.p, f = s.flags, D = E.showDialog, has = E.has, sound = E.sound;
         const held = s.inv[s.slot] || s.inv[1 - s.slot];
         if (s.mode === 'crane') return craneUse(), true;
@@ -210,7 +211,9 @@
         if (s.room === 1) {
           if (at(208, 248, 120, 180)) {
             const go = () => { s.mode = 'crane'; };
-            if (!s.craneSeen) { s.craneSeen = true; return D(L('l3.crane'), go), true; }
+            // standing by it shows what it is; working it (the arrows move it) waits for USE
+            if (!s.craneSeen) { s.craneSeen = true; return D(L('l3.crane'), auto ? null : go), true; }
+            if (auto) return E.hint(L('useIt')), true;
             return go(), true;
           }
           if (at(8, 64, 130, 180) && p.y === 176) return D(L('l3.ledge')), true;
@@ -220,7 +223,9 @@
           if (at(80, 160, 120, 180)) {
             if (f.dotDone) return E.say(L('l3.morse.after')), true;
             const go = () => { s.mode = 'morse'; s.morse = ''; };
-            if (!s.morseSeen) { s.morseSeen = true; return D(L('l3.morse'), go), true; }
+            // standing by it shows what it is; working it (the arrows move it) waits for USE
+            if (!s.morseSeen) { s.morseSeen = true; return D(L('l3.morse'), auto ? null : go), true; }
+            if (auto) return E.hint(L('useIt')), true;
             return go(), true;
           }
         }
@@ -228,7 +233,9 @@
           if (at(16, 120, 120, 180)) {
             if (f.tuned) return E.say(L('l3.tune.after')), true;
             const go = () => { s.mode = 'tune'; };
-            if (!s.tuneSeen) { s.tuneSeen = true; return D(L('l3.radio'), go), true; }
+            // standing by it shows what it is; working it (the arrows move it) waits for USE
+            if (!s.tuneSeen) { s.tuneSeen = true; return D(L('l3.radio'), auto ? null : go), true; }
+            if (auto) return E.hint(L('useIt')), true;
             return go(), true;
           }
         }
@@ -254,7 +261,7 @@
         }
         return false;
       },
-      onWonUse: () => E.restart(),
+      onWonUse: () => E.nextLevel(),
 
       decor: {
         0(g) {

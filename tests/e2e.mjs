@@ -43,6 +43,8 @@ await page.waitForFunction(() => window.zizzy);
 // Bot helpers, installed in the page so a whole run is one synchronous call
 await page.evaluate(() => {
   const Z = window.zizzy, S = () => Z.state, P = () => Z.state.p;
+  // the scripted bot reads things with USE on purpose; standing still looks by itself (tested on its own below)
+  Z.autoLook(false);
   const where = () => `room ${S().room} x=${P().x.toFixed(1)} y=${P().y.toFixed(1)} ground=${P().ground} climb=${P().climb}` +
     (S().dialog ? ` dialog="${S().dialog.text.slice(0, 50)}"` : "");
   const run = (keys, done, max, label) => {
@@ -82,7 +84,7 @@ const play = await page.evaluate(() => {
   const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
   Z.manual(true);
   try {
-    expect(S().dialog && S().dialog.menu && S().dialog.choices.length === 3 && S().dialog.sel === 0, "the game opens on the level choice (3 levels), level 1 picked");
+    expect(S().dialog && S().dialog.menu && S().dialog.choices.length === 4 && S().dialog.sel === 0, "the game opens on the level choice (4 levels), level 1 picked");
     closeDialogs();
     expect(S().level === 0 && S().room === 0 && P().ground, "USE starts level 1 on the cellar floor");
 
@@ -462,6 +464,118 @@ const play3 = await page.evaluate(() => {
 for (const l of play3.log) console.log(`  · ${l}`);
 check(play3.ok, play3.ok ? `level 3 played through without losing a life (${play3.lives} lives, ${play3.seconds} s of game time)` : `level 3: ${play3.error}`);
 
+// Level 4, the lighthouse: a bot plays it through, trying the wrong things first
+const play4 = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs, walkTo, walkToRoom, hop, act, where } = window.bot;
+  const log = [];
+  const expect = (cond, what) => { if (!cond) throw new Error(`${what} (${where()})`); log.push(what); };
+  const text = () => (S().dialog || {}).text || "";
+  const climbTo = (room, label) => run({ up: true }, () => S().room === room && P().ground && !P().climb, 900, label);
+  // pick answer i of the question on screen, then USE
+  const answer = i => { run({}, () => S().dialog && S().dialog.shown >= S().dialog.text.length, 400, "the question"); Z.press("slot" + i); Z.step(1); act("use"); };
+  // the bare wire sparks for ticks 30-74 of every 150: start walking just after a burst
+  const afterArc = () => run({}, () => S().tick % 150 === 76, 160, "the sparks stop");
+  Z.manual(true);
+  try {
+    Z.level(4);
+    expect(S().level === 3 && S().room === 0 && /^LEVEL 4/.test(text()), "level 4 starts in the keeper's hut with its intro");
+    closeDialogs();
+
+    // --- Keeper's hut: a dusty solar panel makes nothing; the duster cleans it
+    walkTo(184, "under the solar panel"); act("use");
+    expect(/DUSTY/.test(text()) && !S().flags.panelClean, "a dusty panel gets no light, so no electricity");
+    closeDialogs();
+    walkTo(84, "to the shelf");
+    hop(["left", 14], "onto the shelf");
+    expect(P().y === 144, "stands on the shelf");
+    walkTo(44, "to the duster"); act("pick");
+    expect(S().inv.includes("rag"), "takes the duster");
+    walkTo(100, "down from the shelf");
+    walkTo(184, "back under the panel"); act("use");
+    expect(S().flags.panelClean && /NEEDLE JUMPS/.test(text()) && !S().inv.includes("rag"), "wiping the dust off lets the light in: the meter jumps");
+    closeDialogs();
+    walkTo(232, "to the meter's spark");
+    expect(S().got.sun && S().sparks === 1, "takes the solar spark");
+
+    // --- Battery room: one battery is the wrong way round
+    walkToRoom("right", 1, "hut -> battery room");
+    walkTo(164, "under the shelf");
+    hop(["right", 14], "onto the shelf");
+    expect(P().y === 144, "stands on the battery room shelf");
+    walkTo(196, "to the fuse"); act("pick");
+    expect(S().inv.includes("fuse"), "takes the spare fuse");
+    walkTo(150, "down from the shelf");
+    walkTo(124, "to the battery rack"); act("use");
+    expect(S().dialog && S().dialog.choices && S().dialog.choices.length === 3, "the rack asks which battery is the wrong way round");
+    answer(0);
+    expect(/THAT ONE IS FINE/.test(text()) && !S().flags.batteriesOk, "a wrong pick explains how to tell");
+    closeDialogs();
+    act("use"); answer(1);
+    expect(S().flags.batteriesOk && S().sparks === 2, "battery 2 turned round: each + touches a -, a spark");
+    closeDialogs();
+
+    // --- Fuse room: an overloaded socket, a sparking wire, a melted fuse
+    walkTo(40, "to the ladder");
+    climbTo(2, "up to the fuse room");
+    walkTo(80, "to the socket"); act("use");
+    answer(1);
+    expect(/EVEN HOTTER/.test(text()) && !S().flags.unplugged, "plugging in one more only makes the wire hotter");
+    closeDialogs();
+    afterArc(); walkTo(184, "past the sparking wire to the fuse box");
+    expect(S().lives === 3, "passes the bare wire between bursts");
+    act("use");
+    expect(/NOT YET/.test(text()) && !S().flags.fuseOn, "a new fuse would melt again while the socket is overloaded");
+    closeDialogs();
+    afterArc(); walkTo(80, "back to the socket");
+    act("use"); answer(0);
+    expect(S().flags.unplugged && /SPARKING STOPS/.test(text()), "unplugging cools the wire and stops the sparks");
+    closeDialogs();
+    walkTo(184, "to the fuse box (the wire is quiet now)");
+    act("use");
+    expect(S().flags.fuseOn && S().sparks === 3 && !S().inv.includes("fuse"), "the new fuse is in: power, a spark");
+    closeDialogs();
+
+    // --- Garland room: one broken bulb, the whole chain dark
+    walkToRoom("left", 3, "fuse room -> garland room");
+    walkTo(136, "under the broken bulb"); act("use");
+    expect(/ONE BULB IS BROKEN/.test(text()) && !S().flags.garlandOn, "one broken bulb in a chain puts them all out");
+    closeDialogs();
+    walkTo(84, "to the shelves");
+    hop(["left", 10], "onto the low shelf");
+    expect(P().y === 144, "on the low shelf");
+    walkTo(64, "under the middle shelf");
+    hop(null, "up to the middle shelf");
+    expect(P().y === 112, "on the middle shelf");
+    walkTo(84, "to the bulb"); act("pick");
+    expect(S().inv.includes("bulb"), "takes the spare bulb");
+    walkTo(104, "to the middle shelf's end");
+    hop(["right", 30], "up to the top shelf");
+    expect(P().y === 80, "on the top shelf");
+    walkTo(136, "to the spark");
+    expect(S().got.shelf && S().sparks === 4, "takes the top shelf spark");
+    walkTo(176, "off the top shelf");
+    walkTo(136, "back under the broken bulb"); act("use");
+    expect(S().flags.garlandOn && S().sparks === 5, "the spare bulb closes the chain: every bulb lights, the fifth spark");
+    closeDialogs();
+
+    // --- Lamp room: the lens, the switch, the ship
+    walkToRoom("right", 2, "garland room -> fuse room");
+    walkTo(216, "to the lamp room ladder");
+    climbTo(4, "up to the lamp room");
+    walkTo(128, "to the lamp"); act("use");
+    expect(/LENS/.test(text()), "the lamp's lens gathers the light into a beam");
+    closeDialogs();
+    walkTo(48, "to the switch"); act("use");
+    expect(S().flags.won && /SAILS SAFELY HOME/.test(text()), "the lamp shines and the ship sails home: level 4 won");
+    closeDialogs();
+    return { ok: true, log, lives: S().lives, seconds: Math.round(S().tick / 50) };
+  } catch (e) {
+    return { ok: false, log, error: e.message };
+  }
+});
+for (const l of play4.log) console.log(`  · ${l}`);
+check(play4.ok, play4.ok ? `level 4 played through without losing a life (${play4.lives} lives, ${play4.seconds} s of game time)` : `level 4: ${play4.error}`);
+
 // Level 2 hazard: the puddle under the live cable
 const puddle = await page.evaluate(() => {
   const { Z, S, P, run, closeDialogs, walkTo } = window.bot;
@@ -488,6 +602,82 @@ const bolt = await page.evaluate(() => {
 });
 check(bolt.died && bolt.safe, "standing by the lightning rod in a strike costs a life; Zizzy respawns away from it");
 
+// Level 3: the crane can't drop its block on Zizzy, and a body stuck in a block is
+// lifted out on top of it (it used to sink a tile into the floor with every jump)
+const stuck = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.level(3); closeDialogs();
+  Object.assign(S(), { room: 1, craneSeen: true, mode: "crane", hookX: 104 });
+  Object.assign(P(), { x: 209, y: 176, ground: true });
+  Z.press("use"); Z.step(1);
+  run({}, () => S().block.state === "held", 400, "lift the block");
+  Z.setKeys({ right: true }); Z.step(150);                     // as far right as the hook goes
+  const hookMax = S().hookX;
+  Z.setKeys({}); Z.press("use"); Z.step(1);
+  run({}, () => S().block.state === "rest", 400, "drop it");
+  const clear = S().block.col * 8 + 16 <= P().x - 5;
+  run({ down: true }, () => !S().mode, 5, "step away");
+  // force the old overlap: the block right where Zizzy stands, then jump a few times
+  Object.assign(S().block, { col: 24, row: 18, y: 160 });
+  Object.assign(P(), { x: 209, y: 176, ground: true });
+  let lowest = 0;
+  for (let i = 0; i < 4; i++) { Z.setKeys({ up: true }); Z.step(2); Z.setKeys({}); for (let k = 0; k < 60; k++) { Z.step(1); lowest = Math.max(lowest, P().y); } }
+  return { hookMax, clear, lowest, top: P().y === 160 && P().ground };
+}).catch(e => ({ error: e.message }));
+check(!stuck.error && stuck.clear && stuck.hookMax <= 192, `the crane stops short of the panel, so the block never lands on Zizzy (hook at ${stuck.hookMax})`);
+check(!stuck.error && stuck.lowest <= 176 && stuck.top, `a body stuck in a block climbs out on top and never sinks into the floor (lowest y ${stuck.lowest})`);
+
+// Standing still by something shows it without USE: once, and a machine waits for USE
+const look = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.autoLook(true);
+  Z.level(3); closeDialogs();
+  const out = {};
+  run({ left: true }, () => P().x <= 116, 400, "to the drum");
+  run({}, () => !!S().dialog, 30, "stand by the drum");
+  out.drum = /DRUM/.test(S().dialog.text);
+  closeDialogs();
+  Z.step(60);
+  out.once = !S().dialog;                                    // standing on: not again
+  run({ left: true }, () => P().x <= 96, 100, "a step along"); Z.setKeys({}); Z.step(40);
+  out.notRepeated = !S().dialog;                             // already read: not shown again
+  out.press = (Z.press("use"), Z.step(1), /DRUM/.test((S().dialog || {}).text || ""));   // USE still shows it
+  closeDialogs();
+  // walking past doesn't stop for things; the crane explains itself but doesn't grab the arrows
+  Object.assign(S(), { room: 1 }); Object.assign(P(), { x: 180, y: 176, ground: true }); S().autoSpot = null;
+  run({ right: true }, () => P().x >= 228, 200, "to the crane panel");
+  out.walking = !S().dialog;
+  run({}, () => !!S().dialog, 30, "stand at the panel");
+  out.crane = /ELECTROMAGNET/.test(S().dialog.text);
+  closeDialogs();
+  out.noMode = !S().mode;
+  Z.press("use"); Z.step(1);
+  out.useWorks = S().mode === "crane";
+  run({ down: true }, () => !S().mode, 5, "step away");
+  Z.autoLook(false);
+  return out;
+}).catch(e => ({ error: e.message }));
+check(!look.error && look.drum && look.once && look.notRepeated && look.press, `standing by the drum shows what it is without USE, once (${JSON.stringify(look)})`);
+check(!look.error && look.walking && look.crane && look.noMode && look.useWorks, "walking past shows nothing; at the crane the text comes up by itself, but working it still needs USE");
+
+// Level 4 hazard: the bare wire sparks while the socket is overloaded, and stops once it isn't
+const arc = await page.evaluate(() => {
+  const { Z, S, P, run, closeDialogs } = window.bot;
+  Z.level(4); closeDialogs();
+  Object.assign(S(), { room: 2 }); Object.assign(P(), { x: 100, y: 176 });
+  run({}, () => S().tick % 150 === 20, 160, "until just before the sparks");
+  run({ right: true }, () => !!S().dialog, 200, "onto the wire");
+  const died = S().lives === 2 && /BARE WIRE/.test(S().dialog.text);
+  closeDialogs();
+  const safe = S().room === 2 && P().ground && (P().x < 124 || P().x > 164);
+  S().flags.unplugged = true;
+  Object.assign(P(), { x: 100, y: 176 });
+  run({}, () => S().tick % 150 === 40, 160, "the time it used to spark");
+  run({ right: true }, () => P().x >= 170, 200, "across the quiet wire");
+  return { died, safe, quiet: S().lives === 2 && !S().dialog };
+});
+check(arc.died && arc.safe && arc.quiet, "the bare wire's sparks cost a life while the socket is overloaded; Zizzy respawns away, and unplugging makes it safe");
+
 // The level button: asks once while playing, remembered, ?level= in the address
 {
   const lv = await page.evaluate(() => {
@@ -495,11 +685,11 @@ check(bolt.died && bolt.safe, "standing by the lightning rod in a strike costs a
     closeDialogs(); Z.step(5);
     Z.press("level"); Z.step(1);
     // from the last level the button wraps round to level 1
-    const asked = S().level === 2 && /AGAIN FOR LEVEL 1/.test((S().speech || {}).text || "");
+    const asked = S().level === 3 && /AGAIN FOR LEVEL 1/.test((S().speech || {}).text || "");
     Z.press("level"); Z.step(1);
     return { asked, switched: S().level === 0, stored: localStorage.getItem("zizzy-level") };
   });
-  check(lv.asked && lv.switched && lv.stored === "1", "the level button asks once while playing, then switches level, from 3 round to 1 (and remembers it)");
+  check(lv.asked && lv.switched && lv.stored === "1", "the level button asks once while playing, then switches level, from 4 round to 1 (and remembers it)");
   await page.goto(url + "?level=2"); await page.waitForFunction(() => window.zizzy);
   const q = await page.evaluate(() => ({ level: window.zizzy.state.level, on: document.querySelector('#level [data-v="1"]').classList.contains("on") }));
   check(q.level === 1 && q.on, "?level=2 in the address opens level 2, and the HUD shows it");

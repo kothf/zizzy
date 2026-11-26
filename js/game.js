@@ -11,7 +11,10 @@
                              Morse key): Zizzy stands still and the level reads the keys
      hazards                 [{ room, x0..y1, active(), sfx, msg }]
      tick()                  per-step world animation (runs during dialogs too)
-     use(at, cx, cy)         USE next to something; true when it handled it
+     use(at, cx, cy, auto)   USE next to something; true when it handled it. auto:
+                             Zizzy just stopped there (no key pressed), so only show
+                             and do what is safe to happen by itself: a machine that
+                             takes over the arrows, or a switch, waits for USE (E.hint)
      decor[room](g)          static scenery, drawn once into the room layer
      draw(), overlay()       moving scenery under / over Zizzy
      drawPlayer()            true when the level draws Zizzy itself (an ending)
@@ -52,6 +55,7 @@
       flags: { won: false, wonTick: 0 },
       crateX: 0, crateV: 0,
       dialog: null, speech: null, restartArmed: 0, levelArmed: 0,
+      seen: {}, autoT: 0, autoSpot: null,
       p: { x: START.x, y: START.y, vx: 0, vy: 0, face: 1, ground: true, support: 'solid', roll: false, rollA: 0,
         carry: 0, climb: false, ladX: 0, walkT: 0, climbT: 0, dead: false },
       safe: { room: START.room, x: START.x, y: START.y }
@@ -89,8 +93,8 @@
   const boundaryBelow = y => TOP + Math.ceil((y - TOP) / TILE - 1e-6) * TILE;
 
   /** Does the player's box (feet at x,y) overlap a solid tile? */
-  function boxSolid(x, y) {
-    const c0 = colOf(x - PH.W / 2), c1 = colOf(x + PH.W / 2 - 0.001);
+  function boxSolid(x, y, half = PH.W / 2) {
+    const c0 = colOf(x - half), c1 = colOf(x + half - 0.001);
     const r0 = rowOf(y - PH.H), r1 = rowOf(y - 0.001);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (isSolid(tileAt(S.room, c, r))) return true;
     return false;
@@ -170,12 +174,28 @@
         p.y = ny;
       } else if (s < 0) {
         if (boxSolid(p.x, ny)) {
-          p.y = TOP + (rowOf(ny - PH.H) + 1) * TILE + PH.H;
+          // head against a ceiling: stop just under it, but never push Zizzy down
+          // (a body already stuck in a block would sink a tile through the floor each jump)
+          p.y = Math.min(p.y, TOP + (rowOf(ny - PH.H) + 1) * TILE + PH.H);
           p.vy = 0;
           return;
         }
         p.y = ny;
       }
+    }
+  }
+
+  /** A block that lands on Zizzy (or a map change) must not trap Zizzy inside it:
+      lift Zizzy out on top of it, and let gravity do the rest. */
+  function unstick() {
+    const p = S.p;
+    // the core of the body only: brushing a wall with an edge while falling past it is fine
+    const CORE = 3;
+    if (p.climb || p.dead || !boxSolid(p.x, p.y, CORE)) return;
+    for (let lift = 1; lift <= 3 * TILE; lift++) {
+      if (boxSolid(p.x, p.y - lift, CORE)) continue;
+      p.y -= lift; p.vy = 0; p.ground = false; p.roll = false; p.carry = 0;
+      return;
     }
   }
 
@@ -394,15 +414,42 @@
   // ---------------------------------------------------------------------------
   // Puzzles: USE checks what Zizzy is standing next to
   // ---------------------------------------------------------------------------
-  function use() {
+  // auto: Zizzy stopped next to something, no key pressed. Then a text already read
+  // is not shown again, little speech bubbles stay quiet, and nothing is "nothing to do"
+  function use(auto = false) {
     const p = S.p, cx = p.x, cy = p.y - 9;
     const at = (x0, x1, y0, y1) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+    const tell = (src, onClose) => {
+      const key = textOf(src);
+      if (auto && !onClose && S.seen[key]) return;
+      S.seen[key] = true;
+      showDialog(src, onClose);
+    };
     // a thing lying right at Zizzy's feet is the closest point of interest: say what it is
     const near = !p.climb && itemUnder(p);
-    if (near) { const id = near.id; showDialog(() => T('look.' + id) + '\n\n' + T('look.pick')); return; }
-    if (LV.use(at, cx, cy)) return;
+    if (near) { const id = near.id; tell(() => T('look.' + id) + '\n\n' + T('look.pick')); return; }
+    const saved = { showDialog: E.showDialog, say: E.say };
+    E.showDialog = tell;
+    if (auto) E.say = () => {};
+    try { if (LV.use(at, cx, cy, auto)) return; } finally { Object.assign(E, saved); }
+    if (auto) return;
     const held = S.inv[S.slot];
     say(held ? () => T('holding', { item: itemName(held) }) : L('nothingToDo'));
+  }
+
+  /** Stand still by something for a moment and Zizzy looks at it by itself, the same
+      as USE. Once per spot: it looks again only after Zizzy has walked a tile away. */
+  let autoLook = true;
+  const AUTO_TICKS = 20;                                // 0.4 s
+  function lookAround() {
+    const p = S.p, k = input, a = S.autoSpot;
+    const still = autoLook && !k.left && !k.right && !k.up && !k.down && (p.ground || p.climb) && !p.dead;
+    if (!still) { S.autoT = 0; return; }
+    if (a && a.room === S.room && Math.abs(a.x - p.x) < TILE && Math.abs(a.y - p.y) < TILE) return;
+    if (++S.autoT < AUTO_TICKS) return;
+    S.autoT = 0;
+    S.autoSpot = { room: S.room, x: p.x, y: p.y };
+    use(true);
   }
 
   function win(key) {
@@ -486,11 +533,13 @@
     if (S.flags.won) return;
 
     // working a machine: Zizzy stands still and the level reads the keys in its tick()
+    unstick();
     if (LV.busy && LV.busy()) { const p = S.p; p.vx = 0; p.walkT = 0; }
     else updatePlayer();
     checkEdges();
     checkHazards();
     if (!S.dialog) checkSparks();
+    if (!S.dialog && !S.flags.won && !(LV.busy && LV.busy())) lookAround();
   }
 
   // ---------------------------------------------------------------------------
@@ -709,7 +758,7 @@
   const E = {
     get S() { return S; }, input, sound, ART, T, L, PH, TILE, TOP, COLS, ROWS, W, H,
     get ctx() { return ctx; }, px, tileImg, cobweb, drawText, drawTextCentered,
-    say, showDialog, ask, has, takeItem, giveItem, collectSpark, win,
+    say, showDialog, ask, hint: text => say(text), has, takeItem, giveItem, collectSpark, win,
     nextLevel: () => startLevel((S.level + 1) % LEVELS.length), restart
   };
   WORLDS.forEach((world, i) => LEVELS.push({ world, ...LOGIC[i](E) }));
@@ -734,6 +783,7 @@
     manual(on) { manual = on; acc = 0; lastTime = performance.now(); },
     setKeys(k) { releaseAll(); Object.assign(input, k); },
     press(a) { actions.push(a); },
+    autoLook(on) { autoLook = on; },
     step(n = 1) { for (let i = 0; i < n; i++) update(); render(); },
     tileAt: (rid, c, r) => tileAt(rid, c, r)
   };

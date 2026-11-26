@@ -11,11 +11,12 @@ import { runInThisContext } from "node:vm";
 runInThisContext(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"), { filename: "world.js" });
 runInThisContext(readFileSync(new URL("../js/world2.js", import.meta.url), "utf8"), { filename: "world2.js" });
 runInThisContext(readFileSync(new URL("../js/world3.js", import.meta.url), "utf8"), { filename: "world3.js" });
+runInThisContext(readFileSync(new URL("../js/world4.js", import.meta.url), "utf8"), { filename: "world4.js" });
 const WORLDS = globalThis.ZIZZY_WORLDS;
 const solid = ch => ch === "#" || ch === "X";
 
-test("three levels, each with its own world", () => {
-  assert.equal(WORLDS.length, 3);
+test("four levels, each with its own world", () => {
+  assert.equal(WORLDS.length, 4);
   assert.equal(WORLDS[0], globalThis.ZIZZY_WORLD);
 });
 
