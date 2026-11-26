@@ -137,7 +137,7 @@
     }
 
     return {
-      roomKey: 'l3.room.', intro: 'l3.intro', wonBanner: 'playAgain',
+      roomKey: 'l3.room.', intro: 'l3.intro', wonBanner: 'nextLevel4',
       init(st) {
         Object.assign(st.flags, { speakerOn: false, dotDone: false, tuned: false, mastUp: false, cableOn: false });
         Object.assign(st, {
@@ -261,7 +261,7 @@
         }
         return false;
       },
-      onWonUse: () => E.restart(),
+      onWonUse: () => E.nextLevel(),
 
       decor: {
         0(g) {

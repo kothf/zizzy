@@ -6,13 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-26
+
 ### Added
+- **Level 4, the Lighthouse**: five new rooms with more first lessons in
+  electricity for players of about 7 to 10, in English and Russian. A dusty
+  solar panel makes nothing until the duster lets the light in; three
+  batteries in a row need each + to touch the next one's - (spot the one the
+  wrong way round); four plugs in one socket overheat the wire and set a bare
+  wire sparking (a hazard) until some are unplugged, and a new fuse can only go
+  in after that; one broken bulb puts out a whole garland wired in series; the
+  lighthouse lamp's lens makes one beam, and switching it on turns the ship
+  away from the rocks. Wrong tries explain why; only the sparking wire costs a
+  life. A duster and a spare bulb join the items.
 - **Look by standing still**: stop by something for a moment (under it, in
   front of it, or on a ladder by it) and Zizzy reads it by itself, the same as
   USE. A text already read is not shown again, walking past shows nothing, and
   a held item that fits is used. Machines that take over the arrows (the crane,
   the Morse key, the dial) and the power switch only explain themselves and
   then wait for USE.
+
+### Changed
+- Finishing level 3 leads on to level 4; the start screen lists four levels,
+  and the LEVEL button and the N key go 1 → 2 → 3 → 4 → 1.
 
 ### Fixed
 - Level 3: Zizzy could sink into the floor of the crane yard. With the hook

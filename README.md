@@ -49,14 +49,33 @@ town has light again, but the radio tower on the hill is silent:
   the antenna with the winch (higher reaches farther), plug in the aerial
   cable, and call "CQ" into the microphone.
 
+**Level 4, the Lighthouse** — more electricity, for the same age. A storm at
+sea, a little ship lost in the dark, and the lighthouse lamp has gone out:
+
+- *Keeper's Hut:* a dusty solar panel gets no light, so it makes no
+  electricity. Wipe it with the duster and the meter jumps.
+- *Battery Room:* three batteries in a row, each + to the next one's -. Spot the
+  one put in the wrong way round.
+- *Fuse Room:* four plugs in one socket, a red-hot wire and a bare wire
+  sparking on the floor. Unplug some, then put in a new fuse (a thin wire that
+  melts first so the house wires never get too hot).
+- *Garland Room:* bulbs in a chain (in series): one broken bulb and the whole
+  garland is dark. A spare bulb closes the chain.
+- *Lamp Room:* the lens gathers the lamp's light into one beam. Switch it on
+  and the ship turns away from the rocks.
+
 The crane, the Morse key and the dial take over the arrow keys while Zizzy
 works them (a hint line at the bottom says how; ↓ or ← → steps away).
 
-Wrong tries explain instead of punishing; only the live puddle (level 2) and
-the lightning (level 3) cost a life. The game opens on a start screen where
+Stand still by something for a moment and Zizzy looks at it by itself, the
+same as USE; a text already read isn't shown again, and machines and switches
+still wait for USE.
+
+Wrong tries explain instead of punishing; only the live puddle (level 2), the
+lightning (level 3) and the sparking bare wire (level 4) cost a life. The game opens on a start screen where
 you choose the level (the one played last is already picked). Finishing a
 level leads on to the next, the LEVEL button (key N) switches at any time, and
-`?level=2` or `?level=3` in the address skips the start screen.
+`?level=2`, `?level=3` or `?level=4` in the address skips the start screen.
 
 | | Keyboard | Touch |
 |---|---|---|
@@ -70,7 +89,7 @@ level leads on to the next, the LEVEL button (key N) switches at any time, and
 | Sound on/off | M | SOUND |
 | Choose an answer (quiz, start screen) | ← → or ↑ ↓, then Space | tap it |
 | Work a machine (crane, dial, Morse key) | ← →, ↓, Space | ◀ ▶ ▼ USE |
-| Level 1 / 2 / 3 | N | LEVEL |
+| Level 1 / 2 / 3 / 4 | N | LEVEL |
 | Language: English / Russian | L | EN / RU |
 | Restart | R twice | — |
 
@@ -119,12 +138,13 @@ the trapdoor, times the jump past the Tesla coil and wins; then it plays level 2
 trying the insulators before the spoon, running the dynamo and answering one
 quiz question wrong first; then level 3, trying the crane on the wooden crate,
 keying a wrong Morse dash, stopping on the music station and dodging the
-lightning; then it checks deaths, respawning, game over, the
+lightning; then level 4, picking the wrong battery, overloading the socket and
+timing the dash past the sparking wire; then it checks deaths, respawning, game over, the
 level switch and the 50 Hz timing.
 
-Each level is a world (`js/world.js`, `js/world2.js`, `js/world3.js`: the tile
-maps, items and sparks) plus its logic (`js/level1.js`, `js/level2.js`,
-`js/level3.js`: puzzles, hazards and scenery as hooks); `js/game.js` is the engine they share.
+Each level is a world (`js/world.js` to `js/world4.js`: the tile
+maps, items and sparks) plus its logic (`js/level1.js` to
+`js/level4.js`: puzzles, hazards and scenery as hooks); `js/game.js` is the engine they share.
 
 Pages load their scripts with `?v=dev`; packaging stamps the release version
 into every asset URL so browsers and CDNs never mix two versions.

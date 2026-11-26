@@ -212,6 +212,24 @@ const ITEM_ART = {
     'YYYYY..YYYYY.',
     'YYYY....YYYY.',
     'yyy......yyy.'
+  ],
+  // level 4: a duster for the solar panel, a spare bulb for the garland
+  rag: [
+    '...wwwww..',
+    '.wwwWwwww.',
+    'wwWwwwwWww',
+    '.wwwwWwww.',
+    '..w.ww.w..'
+  ],
+  bulb: [
+    '..YYY..',
+    '.YWWYY.',
+    '.YWYYY.',
+    '.YYYYY.',
+    '..YYY..',
+    '..www..',
+    '..WwW..',
+    '...w...'
   ]
 };
 
